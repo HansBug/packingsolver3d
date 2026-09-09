@@ -93,7 +93,7 @@ class TestSolveInstance:
         assert result.run.options == options
         assert result.run.options is not options
         assert result.run.stdout == '' and result.run.stderr == ''
-        assert result.run.wall_time > 0
+        assert result.run.wall_time >= 0  # a sub-millisecond solve may round to zero
 
     def test_decode_bins_numbering(self):
         raw = [

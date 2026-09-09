@@ -212,7 +212,7 @@ def solve_instance(
         is upstream's own and the partial :class:`RunRecord` is attached.
     """
     payload = instance_payload(instance, unloading_constraint)
-    started = time.time()
+    started = time.perf_counter()
     try:
         raw = _solver(problem_type)(payload, options)
     except ValueError as err:
@@ -221,11 +221,11 @@ def solve_instance(
     except RuntimeError as err:
         # std::runtime_error (or any other std::exception) from the solver itself.
         record = RunRecord(problem_type=problem_type, options=dict(options), stdout='', stderr='',
-                           wall_time=time.time() - started)
+                           wall_time=time.perf_counter() - started)
         raise SolverFailedError(
             '{problem_type} solver failed: {err}'.format(problem_type=problem_type, err=err), run=record,
         )
-    wall_time = time.time() - started
+    wall_time = time.perf_counter() - started
 
     output = json.loads(raw['output'])
     bins = _decode_bins(raw['bins'])
