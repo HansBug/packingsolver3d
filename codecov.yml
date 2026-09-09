@@ -6,3 +6,10 @@ coverage:
         target: auto
         threshold: 3%
         if_ci_failed: success #success, failure, error, ignore
+
+# The merged coverage.xml carries gcovr branch data for the C++ bridge; a line
+# that ran but did not take every branch is still a covered line here, as in
+# the gcovr table printed by `make unittest`.
+parsers:
+  cobertura:
+    partials_as_hits: true

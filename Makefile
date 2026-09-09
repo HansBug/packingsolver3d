@@ -91,6 +91,9 @@ test: unittest
 # lands next to the object file in the CMake tree; gcovr renders it as Cobertura
 # and folds it into pytest-cov's coverage.xml, so one file carries both
 # languages (gcovr reads coverage.py's Cobertura through --cobertura-add-tracefile).
+# Compiler-generated exception and unreachable branches are left out, otherwise
+# most pybind11 lines read as partially covered; codecov.yml additionally counts
+# the remaining partial lines as hits so the dashboard matches the table below.
 GCOV_DATA_DIR := ${CMAKE_BUILD_DIR}/CMakeFiles/_core.dir/packingsolver3d
 
 unittest:
@@ -106,7 +109,9 @@ unittest:
 		&& $(PYTHON) -m gcovr --help 2>/dev/null | grep -q -- --cobertura-add-tracefile; then \
 		echo "Folding gcov coverage of packingsolver3d/_core.cpp into coverage.xml"; \
 		$(PYTHON) -m gcovr --root "${PROJ_DIR}" --object-directory "${CMAKE_BUILD_DIR}" \
-			--filter "packingsolver3d/_core\\.cpp" --cobertura .coverage-cpp.xml && \
+			--filter "packingsolver3d/_core\\.cpp" \
+			--exclude-throw-branches --exclude-unreachable-branches \
+			--cobertura .coverage-cpp.xml && \
 		$(PYTHON) -m gcovr --root "${PROJ_DIR}" \
 			--cobertura-add-tracefile coverage.xml --cobertura-add-tracefile .coverage-cpp.xml \
 			--cobertura .coverage-merged.xml --txt=- --print-summary && \
