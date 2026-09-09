@@ -121,6 +121,30 @@
 * :doc:`explanations/statuses/index_zh`
 * :doc:`explanations/upstream_behaviours/index_zh`
 
+基准测试
+--------
+
+一项小规模、可完整复现的能力研究：在三个公开实例族上，把本包与 Python、Go、Rust 生态里常用的开源三维装箱库以及两个精确参照程序放在一起比较，每个解都经过独立复核并可视化。
+
+.. toctree::
+    :maxdepth: 2
+    :caption: 基准测试
+    :hidden:
+
+    基准测试路线图 <benchmarks/index_zh>
+    benchmarks/datasets/index_zh
+    benchmarks/participants/index_zh
+    benchmarks/protocol/index_zh
+    benchmarks/leaderboards/index_zh
+    benchmarks/gallery/index_zh
+
+* :doc:`基准测试路线图 <benchmarks/index_zh>`
+* :doc:`benchmarks/datasets/index_zh`
+* :doc:`benchmarks/participants/index_zh`
+* :doc:`benchmarks/protocol/index_zh`
+* :doc:`benchmarks/leaderboards/index_zh`
+* :doc:`benchmarks/gallery/index_zh`
+
 参考
 ----
 

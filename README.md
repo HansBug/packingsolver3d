@@ -41,6 +41,25 @@ PackingSolver covers several problem families. This package deliberately exposes
 
 The figures are real solves drawn with `packingsolver3d.visual` (optional dependency `plotly`, `pip install "packingsolver3d[plot]"`), the same drawing upstream's `scripts/visualize_box.py` produces; in the [documentation](https://packingsolver3d.readthedocs.io/en/latest/how_to/visualization/index.html) they are interactive.
 
+## Benchmarks
+
+A small, reproducible capability study is part of the documentation: three public instance families with proven or constructive optima (Egeblad-Pisinger 3D knapsack with 20 items, the Martello-Pisinger-Vigo generator's class 9 with 30 items cut from exactly three bins, and eight Ivancic-Mathur-Mohanty THPACK9 loading instances), run through `box.solve` with a 10 s time limit next to py3dbp, jerry800416/3D-bin-packing, gedex/bp3d, the five 3D strategies of U-Nesting, an exact CP-SAT model and the Martello-Pisinger-Vigo branch-and-bound as references. Every solution, ours and third-party, is re-validated by an independent geometry checker and every objective is recomputed from the placements. Totals over all cases, lower gap is better:
+
+| Participant | EP 3D knapsack, profit (gap to proven optimum) | MPV class 9, bins (optimum 30) | THPACK9, containers (bound 49) |
+|---|---|---|---|
+| packingsolver3d (PackingSolver `box`) | 15,181,510 (0, all ten proven optimal) | 30 (all ten proven optimal) | 50 (+1, seven of eight proven optimal) |
+| py3dbp / jerry800416, rotation relaxed on the first two | 13,752,808 (-9.4%) | 41 (+11) | 79 (+30) |
+| gedex/bp3d, rotation relaxed on the first two | 13,352,723 (-12.0%) | 46 (+16) | 81 (+32) |
+| U-Nesting SA / ExtremePoint (best of five strategies) | 13,627,093 (-10.2%) | 42 (+12) | 79 (+30) |
+| OR-Tools CP-SAT exact model (reference, 20 s) | 15,181,510 (0) | - | - |
+| Martello-Pisinger-Vigo 3dbpp.c (reference, 1 s) | - | 40 (+10) | - |
+
+| packingsolver3d: three bins, proven optimal | py3dbp: four bins, rotation relaxed |
+|---|---|
+| ![ours on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__packingsolver3d.png) | ![py3dbp on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__py3dbp.png) |
+
+The instances are small and constraint-free, each number is a single run, and the greedy libraries were designed for speed rather than optimality, so this is a capability study, not a ranking of packing software. Sources, versions, the protocol, the full per-case leaderboards and the side-by-side gallery are in the [benchmark section of the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/index.html); `make benchmarks` regenerates everything from `tools/make_benchmarks.py`.
+
 ## Installation
 
 ```shell

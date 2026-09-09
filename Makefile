@@ -1,4 +1,4 @@
-.PHONY: docs docs_en docs_zh pdocs test unittest doctest figures build build_clean package clean rst_auto help
+.PHONY: docs docs_en docs_zh pdocs test unittest doctest figures benchmarks build build_clean package clean rst_auto help
 
 PYTHON := $(shell which python)
 
@@ -61,6 +61,8 @@ help:
 	@echo "                      Options: RANGE_DIR=<dir>"
 	@echo "  make figures      - Regenerate the packing figures (HTML + PNG) under docs/source/_static/figures"
 	@echo "                      Needs plotly and kaleido with a Chrome/Chromium binary; FIGURES_ARGS=--no-png skips PNG"
+	@echo "  make benchmarks   - Solve the benchmark cases and regenerate the tables and figures of docs/source/benchmarks"
+	@echo "                      (tools/make_benchmarks.py --solve --render); BENCHMARKS_ARGS=--no-png skips PNG"
 	@echo ""
 	@echo "Common Variables:"
 	@echo "  RANGE_DIR=<dir>   - Target specific directory (default: .)"
@@ -149,6 +151,9 @@ doctest:
 # extension, plotly or a browser.
 figures:
 	$(PYTHON) -m tools.make_figures --output "${DOC_DIR}/source/_static/figures" $(FIGURES_ARGS)
+
+benchmarks:
+	$(PYTHON) -m tools.make_benchmarks --solve --render $(BENCHMARKS_ARGS)
 
 docs:
 	$(MAKE) -C "${DOC_DIR}" build

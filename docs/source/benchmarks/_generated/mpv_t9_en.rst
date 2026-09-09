@@ -1,0 +1,159 @@
+.. list-table::
+   :header-rows: 1
+
+   * - Participant
+     - Total
+     - Bound (gap)
+     - R01
+     - R02
+     - R03
+     - R04
+     - R05
+     - R06
+     - R07
+     - R08
+     - R09
+     - R10
+   * - Theoretical bound
+     - 30
+     - \-
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+     - 3
+   * - `packingsolver3d (PackingSolver box) <https://github.com/HansBug/packingsolver3d>`__
+     - 30
+     - 30 (0)
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+   * - `Martello-Pisinger-Vigo 3dbpp.c <http://hjemmesider.diku.dk/~pisinger/codes.html>`__ (reference)
+     - 40
+     - 30 (+10)
+     - 4
+     - 5
+     - 5
+     - 4
+     - 5
+     - 3*
+     - 3*
+     - 3*
+     - 3*
+     - 5
+   * - `py3dbp <https://github.com/enzoruiz/3dbinpacking>`__ (rotation relaxed)
+     - 41
+     - 30 (+11)
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 5
+   * - `jerry800416/3D-bin-packing <https://github.com/jerry800416/3D-bin-packing>`__ (rotation relaxed)
+     - 41
+     - 30 (+11)
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 4
+     - 5
+   * - `U-Nesting ExtremePoint <https://github.com/iyulab/U-Nesting>`__
+     - 42
+     - 30 (+12)
+     - 4
+     - 4
+     - 4
+     - 5
+     - 4
+     - 4
+     - 5
+     - 4
+     - 4
+     - 4
+   * - `gedex/bp3d <https://github.com/gedex/bp3d>`__ (rotation relaxed)
+     - 46
+     - 30 (+16)
+     - 5
+     - 5
+     - 5
+     - 4
+     - 4
+     - 4
+     - 4
+     - 5
+     - 4
+     - 6
+   * - `U-Nesting GA <https://github.com/iyulab/U-Nesting>`__
+     - 50
+     - 30 (+20)
+     - 5
+     - 5
+     - 4
+     - 5
+     - 4
+     - 6
+     - 5
+     - 6
+     - 5
+     - 5
+   * - `U-Nesting SA <https://github.com/iyulab/U-Nesting>`__
+     - 50
+     - 30 (+20)
+     - 5
+     - 6
+     - 4
+     - 5
+     - 4
+     - 6
+     - 5
+     - 5
+     - 5
+     - 5
+   * - `U-Nesting BRKGA <https://github.com/iyulab/U-Nesting>`__
+     - 52
+     - 30 (+22)
+     - 5
+     - 6
+     - 5
+     - 5
+     - 4
+     - 6
+     - 5
+     - 6
+     - 5
+     - 5
+   * - `U-Nesting BottomLeftFill <https://github.com/iyulab/U-Nesting>`__
+     - 59
+     - 30 (+29)
+     - 6
+     - 6
+     - 5
+     - 5
+     - 6
+     - 6
+     - 6
+     - 6
+     - 7
+     - 6

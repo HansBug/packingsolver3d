@@ -121,6 +121,30 @@ Explanations give the reasoning behind the design and the upstream behaviours th
 * :doc:`explanations/statuses/index`
 * :doc:`explanations/upstream_behaviours/index`
 
+Benchmarks
+----------
+
+A small, reproducible capability study on three public instance families, next to the open-source 3D packing libraries commonly used from Python, Go and Rust and two exact reference codes, with every solution re-validated and drawn.
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Benchmarks
+    :hidden:
+
+    Benchmark roadmap <benchmarks/index>
+    benchmarks/datasets/index
+    benchmarks/participants/index
+    benchmarks/protocol/index
+    benchmarks/leaderboards/index
+    benchmarks/gallery/index
+
+* :doc:`Benchmark roadmap <benchmarks/index>`
+* :doc:`benchmarks/datasets/index`
+* :doc:`benchmarks/participants/index`
+* :doc:`benchmarks/protocol/index`
+* :doc:`benchmarks/leaderboards/index`
+* :doc:`benchmarks/gallery/index`
+
 Reference
 ---------
 
