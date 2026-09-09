@@ -35,10 +35,11 @@ def validate(instance: Instance) -> None:
 
     Example::
 
-        >>> from packingsolver3d import BinType, Instance, ItemType, box
+        >>> from packingsolver3d import BinType, Instance, ItemType, Objective, box
         >>> instance = Instance(
         ...     bin_types=[BinType(x=10, y=10, z=10)],
         ...     item_types=[ItemType(x=2, y=2, z=2, stackability_id=0)],
+        ...     objective=Objective.BIN_PACKING,
         ... )
         >>> box.validate(instance)
         Traceback (most recent call last):

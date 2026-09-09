@@ -6,8 +6,8 @@ Overview:
     This distribution is unofficial and covers only the two three-dimensional
     problem types, ``box`` and ``boxstacks``.  The upstream solvers are
     compiled into the extension module :mod:`packingsolver3d._core` together
-    with a thin pybind11 bridge, so nothing has to be built at install time and
-    no C++ lifetime ever reaches Python: an instance goes in as plain values,
+    with a thin pybind11 bridge, so a wheel needs no build step at install time
+    and no C++ lifetime ever reaches Python: an instance goes in as plain values,
     ``optimize()`` runs in-process, and the best solution comes back copied
     into plain value objects.
 

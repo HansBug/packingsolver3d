@@ -91,24 +91,24 @@ class TestInstance:
         assert box_instance.defects == ()
         assert box_instance.unloading_constraint is None
 
-    def test_default_objective(self):
-        # Upstream's own 'default' token: it picks the objective from the instance shape.
-        instance = Instance(bin_types=[BinType(x=1, y=1, z=1)], item_types=[ItemType(x=1, y=1, z=1)])
-        assert instance.objective == Objective.DEFAULT
-        assert instance.objective.value == 'default'
+    def test_objective_is_required(self):
+        # Upstream's 'default' token is its unset placeholder, so the model does not default to it.
+        with pytest.raises(TypeError):
+            Instance(bin_types=[BinType(x=1, y=1, z=1)], item_types=[ItemType(x=1, y=1, z=1)])  # noqa
+        assert Objective.DEFAULT.value == 'default'
 
     def test_needs_stacking(self, box_instance, stack_instance, defect_instance):
         assert not box_instance.needs_stacking
         assert stack_instance.needs_stacking
         assert defect_instance.needs_stacking
         unloading = Instance(
-            bin_types=box_instance.bin_types, item_types=box_instance.item_types,
+            bin_types=box_instance.bin_types, item_types=box_instance.item_types, objective=box_instance.objective,
             unloading_constraint=UnloadingConstraint.ONLY_X_MOVEMENTS,
         )
         assert unloading.needs_stacking
         bin_only = Instance(
             bin_types=[BinType(x=1, y=1, z=1, maximum_stack_density=2.0)],
-            item_types=box_instance.item_types,
+            item_types=box_instance.item_types, objective=box_instance.objective,
         )
         assert bin_only.needs_stacking
 

@@ -28,7 +28,7 @@ class TestValidate:
     def test_rejects_unloading(self, box_instance):
         from packingsolver3d import UnloadingConstraint
         instance = Instance(
-            bin_types=box_instance.bin_types, item_types=box_instance.item_types,
+            bin_types=box_instance.bin_types, item_types=box_instance.item_types, objective=box_instance.objective,
             unloading_constraint=UnloadingConstraint.ONLY_X_MOVEMENTS,
         )
         with pytest.raises(UnsupportedFeatureError) as exc_info:

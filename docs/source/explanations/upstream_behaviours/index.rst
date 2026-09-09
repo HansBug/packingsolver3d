@@ -65,3 +65,17 @@ Anytime runs are not reproducible run to run
 *Upstream.* The default ``ANYTIME`` mode uses threads and wall-clock checkpoints; the incumbent at the time limit can differ between runs. The reported bound does not depend on timing.
 
 *Package.* Use ``OptimizationMode.NOT_ANYTIME_DETERMINISTIC`` (or ``NOT_ANYTIME_SEQUENTIAL``, which upstream's own tests use) when two runs must agree, and always record ``result.run.options``.
+
+Upstream is not thread-safe
+---------------------------
+
+*Observation.* Four Python threads calling ``optimize()`` at the same time through the bridge crash the interpreter with a segmentation fault at the pinned commit; the bridge's own capture of ``std::cout`` for the run log is not re-entrant either.
+
+*Package.* :func:`packingsolver3d.box.solve` and :func:`packingsolver3d.boxstacks.solve` take one process-wide lock around the native call, so concurrent callers wait their turn while the GIL stays released for everybody else. Parallel solves need worker processes, as in :doc:`/how_to/budgets/index`.
+
+The ``default`` objective produces no solution
+----------------------------------------------
+
+*Upstream.* ``Objective::Default`` is the placeholder an ``Instance`` carries before an objective is set; upstream's command line has no default for ``--objective`` and its optimisers only run their algorithms for an explicit objective. An instance solved with ``default`` returns no packing at all when bins have several copies, and an undefined one otherwise.
+
+*Package.* :class:`~packingsolver3d.model.Instance` requires ``objective``, and :attr:`Objective.DEFAULT <packingsolver3d.model.Objective.DEFAULT>` -- kept because it is upstream's token -- is refused with :class:`~packingsolver3d.errors.InvalidInstanceError` before the solver is called.

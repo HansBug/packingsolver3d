@@ -20,7 +20,7 @@ __VERSION__ = '0.0.1'
 
 #: Short description of the project, will be included in ``setup.py``.
 __DESCRIPTION__ = 'Pythonic bindings for the 3D (box / boxstacks) solvers of PackingSolver, ' \
-                  'shipped with precompiled native executables.'
+                  'compiled into one in-process extension module.'
 
 #: Author of this project.
 __AUTHOR__ = 'HansBug'

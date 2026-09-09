@@ -12,7 +12,7 @@ Overview:
 from typing import Any, Dict, Optional
 
 from .errors import InvalidInstanceError
-from .model import BinType, Instance, ItemType, UnloadingConstraint
+from .model import BinType, Instance, ItemType, Objective, UnloadingConstraint
 
 __all__ = ['instance_payload']
 
@@ -62,10 +62,18 @@ def _validate(instance: Instance) -> None:
     surface as a bare ``ValueError``; failing here keeps the message specific.
 
     :param instance: The instance to check.
-    :raise InvalidInstanceError: When the instance is empty or carries a
-        non-positive dimension, a non-positive count, a ``copies_min`` outside
-        ``[0, copies]`` or a defect on an unknown bin type.
+    :raise InvalidInstanceError: When the instance is empty, uses the
+        ``default`` objective placeholder, or carries a non-positive dimension,
+        a non-positive count, a ``copies_min`` outside ``[0, copies]`` or a
+        defect on an unknown bin type.
     """
+    if instance.objective == Objective.DEFAULT:
+        # Upstream's Objective::Default is the "not set yet" state; optimize() runs no algorithm for it
+        # and returns an empty solution when bins have several copies.
+        raise InvalidInstanceError(
+            "objective 'default' is upstream's unset placeholder and produces no solution; "
+            "pass an explicit Objective such as BIN_PACKING or KNAPSACK"
+        )
     if not instance.bin_types:
         raise InvalidInstanceError('instance has no bin types')
     if not instance.item_types:
@@ -127,14 +135,15 @@ def instance_payload(
 
     Example::
 
-        >>> from packingsolver3d import BinType, Instance, ItemType
+        >>> from packingsolver3d import BinType, Instance, ItemType, Objective
         >>> from packingsolver3d._encode import instance_payload
         >>> payload = instance_payload(Instance(
         ...     bin_types=[BinType(x=10, y=10, z=10, cost=3)],
         ...     item_types=[ItemType(x=1, y=2, z=3, copies=4)],
+        ...     objective=Objective.BIN_PACKING,
         ... ))
         >>> payload['objective'], payload['bins'][0]['cost'], payload['items'][0]['copies']
-        ('default', 3, 4)
+        ('bin-packing', 3, 4)
         >>> 'profit' in payload['items'][0]
         False
     """

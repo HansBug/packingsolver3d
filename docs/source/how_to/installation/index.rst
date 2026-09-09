@@ -40,7 +40,7 @@ A wheel contains one extension module, ``packingsolver3d._core``, with the upstr
 Other architectures
 -------------------
 
-i686, ppc64le, s390x, armv7l, riscv64 and loongarch64 are not built as wheels; ``pip`` falls back to the sdist there. A source build needs CMake 3.28 or newer, a C++17 compiler (GCC 10+, Clang, or MSVC 2022) and network access, because upstream fetches Boost, HiGHS and its solver libraries through CMake ``FetchContent`` at configure time. Expect ten to twenty minutes on a workstation:
+i686, ppc64le, s390x, armv7l, riscv64 and loongarch64 are not built as wheels; ``pip`` falls back to the sdist there. A source build needs CMake 3.28 or newer (``pip`` installs the ``cmake`` wheel into the build environment where one exists for the platform), a C++17 compiler (GCC 10+, Clang, or MSVC 2022), ``git`` and network access, because upstream fetches HiGHS, nlohmann/json and its own solver libraries through CMake ``FetchContent`` (``git clone`` and archive downloads) at configure time. The build runs one compiler per CPU; set ``CMAKE_BUILD_PARALLEL_LEVEL`` to a smaller number on machines with little memory. Expect a few minutes on a workstation:
 
 .. code-block:: bash
 

@@ -40,7 +40,7 @@ Wheel
 其它架构
 --------
 
-i686、ppc64le、s390x、armv7l、riscv64、loongarch64 不构建 wheel，``pip`` 在这些平台会退回 sdist。源码构建需要 CMake 3.28 及以上、C++17 编译器（GCC 10+、Clang 或 MSVC 2022）以及网络访问——上游在配置阶段通过 CMake ``FetchContent`` 拉取 Boost、HiGHS 和它的求解器库。工作站上约需十到二十分钟：
+i686、ppc64le、s390x、armv7l、riscv64、loongarch64 不构建 wheel，``pip`` 在这些平台会退回 sdist。源码构建需要 CMake 3.28 及以上（有对应平台 wheel 时 ``pip`` 会把 ``cmake`` 装进构建环境）、C++17 编译器（GCC 10+、Clang 或 MSVC 2022）、``git`` 以及网络访问——上游在配置阶段通过 CMake ``FetchContent``\ （``git clone`` 与归档下载）拉取 HiGHS、nlohmann/json 和它自己的求解器库。构建默认每个 CPU 一个编译进程，内存小的机器请把 ``CMAKE_BUILD_PARALLEL_LEVEL`` 设小。工作站上约需几分钟：
 
 .. code-block:: bash
 

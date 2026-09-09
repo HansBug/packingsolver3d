@@ -16,14 +16,37 @@ import argparse
 import os
 import sys
 
-from packingsolver3d import BinType, Instance, ItemType, Objective, OptimizationMode, SemiTrailerTruck, box, boxstacks
+from packingsolver3d import ALL_ROTATIONS, BinType, Instance, ItemType, Objective, OptimizationMode, SemiTrailerTruck, box, boxstacks
 from packingsolver3d.visual import plot_result
 
 MODE = OptimizationMode.NOT_ANYTIME_DETERMINISTIC
 
 
+#: The quick start example: a 55 x 40 x 23 cm carry-on and the things you would like to take.
+LUGGAGE = {  # name: (x, y, z, value, copies)
+    'laptop': (36, 25, 3, 10, 1), 'camera': (15, 10, 8, 9, 1), 'shoes': (30, 20, 12, 8, 1),
+    'jacket': (35, 20, 15, 6, 1), 'sweater': (30, 25, 8, 5, 2), 'toiletry bag': (25, 12, 10, 4, 1),
+    'hair dryer': (22, 9, 20, 3, 1), 'book': (24, 16, 4, 3, 4), 'souvenir': (10, 10, 10, 2, 6),
+    'water bottle': (8, 8, 25, 1, 1),
+}
+
+
+def suitcase():
+    """The quick start example: what fits in a carry-on when the total value is maximised (anytime search, 3 s)."""
+    instance = Instance(
+        bin_types=[BinType(x=55, y=40, z=23)],
+        item_types=[ItemType(x=x, y=y, z=z, profit=value, copies=copies, rotations=ALL_ROTATIONS)
+                    for x, y, z, value, copies in LUGGAGE.values()],
+        objective=Objective.KNAPSACK,
+    )
+    result = box.solve(instance, time_limit=3.0)
+    total = sum(value * copies for _, _, _, value, copies in LUGGAGE.values())
+    return plot_result(result, title='box: what fits in a 55 x 40 x 23 carry-on, value %d of %d (%d of %d items)' % (
+        result.value, total, len(result.placements), sum(copies for *_, copies in LUGGAGE.values())))
+
+
 def quick_start():
-    """The ten-item bin packing instance of the quick start tutorial."""
+    """The ten-item bin packing instance of the home page."""
     instance = Instance(
         bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5)],
         item_types=[ItemType(x=20, y=30, z=40, copies=6), ItemType(x=15, y=15, z=15, copies=4)],
@@ -84,6 +107,7 @@ def truck():
 
 
 FIGURES = {
+    'quick_start_suitcase': suitcase,
     'box_bin_packing': quick_start,
     'box_multi_bin': multi_bin,
     'boxstacks_stacks': stacks,

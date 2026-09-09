@@ -22,6 +22,86 @@ Pythonic bindings for the two three-dimensional solvers of [PackingSolver](https
 
 > **Unofficial distribution.** This project is maintained independently of PackingSolver and is not endorsed by its author. The solvers are built unmodified from the upstream commit recorded in `packingsolver3d/config/meta.py`; see [NOTICE.md](NOTICE.md) for the exact build configuration and licensing.
 
+## Installation
+
+```shell
+pip install packingsolver3d
+```
+
+Wheels are published for Linux (x86_64, aarch64), macOS (x86_64, arm64) and Windows (AMD64, ARM64), for every CPython the platform has an official build of: 3.7 through 3.14 on Linux x86_64 and Windows AMD64, 3.8 through 3.14 on Linux aarch64 and macOS, 3.11 through 3.14 on Windows ARM64. No compiler is needed for a wheel install. Other architectures (i686, ppc64le, s390x, armv7l, riscv64, loongarch64) are not built as wheels; `pip` falls back to the sdist there. Installing from the sdist compiles PackingSolver and the bridge from the vendored sources and needs a C++17 compiler, `git`, network access for upstream's `FetchContent` dependencies and CMake 3.28 or newer (installed into the build environment by `pip` where a `cmake` wheel exists). The optional plotting extra pulls in plotly:
+
+```shell
+pip install "packingsolver3d[plot]"
+```
+
+## Quick start
+
+A 55 x 40 x 23 cm carry-on, the things you would like to take and how much you want each of them. The solver picks the subset with the highest total value that really fits, places every piece, and the result draws itself:
+
+```python
+from packingsolver3d import ALL_ROTATIONS, BinType, Instance, ItemType, Objective, box
+from packingsolver3d.visual import plot_result       # needs the plot extra
+
+luggage = {  # name: (x, y, z, value, copies)
+    'laptop': (36, 25, 3, 10, 1), 'camera': (15, 10, 8, 9, 1), 'shoes': (30, 20, 12, 8, 1),
+    'jacket': (35, 20, 15, 6, 1), 'sweater': (30, 25, 8, 5, 2), 'toiletry bag': (25, 12, 10, 4, 1),
+    'hair dryer': (22, 9, 20, 3, 1), 'book': (24, 16, 4, 3, 4), 'souvenir': (10, 10, 10, 2, 6),
+    'water bottle': (8, 8, 25, 1, 1),
+}
+names = list(luggage)
+instance = Instance(
+    bin_types=[BinType(x=55, y=40, z=23)],
+    item_types=[ItemType(x=x, y=y, z=z, profit=value, copies=n, rotations=ALL_ROTATIONS)
+                for x, y, z, value, n in luggage.values()],
+    objective=Objective.KNAPSACK,                       # maximise the value of what fits
+)
+result = box.solve(instance, time_limit=3.0)
+
+print(result.status, result.value, result.bound)         # Status.FEASIBLE 69.0 72.0
+packed = [0] * len(names)
+for placement in result.placements:
+    packed[placement.item_type_id] += 1
+for name, count in zip(names, packed):
+    print(f'{name:13s} {count}/{luggage[name][4]}' + ('' if count == luggage[name][4] else '   <- left out'))
+
+plot_result(result, title='What fits in the carry-on').show()   # rotate, zoom, hover a box for its item type
+```
+
+```text
+Status.FEASIBLE 69.0 72.0
+laptop        1/1
+camera        1/1
+shoes         1/1
+jacket        0/1   <- left out
+sweater       2/2
+toiletry bag  1/1
+hair dryer    1/1
+book          4/4
+souvenir      6/6
+water bottle  1/1
+```
+
+[![What fits in the carry-on](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/figures/quick_start_suitcase.png)](https://packingsolver3d.readthedocs.io/en/latest/tutorials/quick_start/index.html)
+
+Everything but the jacket fits, for a value of 69 out of 75. `result.bound` is what the solver proved: no packing is worth more than 72, so the status stays `FEASIBLE` rather than `OPTIMAL` -- the package never relabels a good incumbent as a proven optimum. The figure is interactive in the [documentation](https://packingsolver3d.readthedocs.io/en/latest/tutorials/quick_start/index.html); on another machine the anytime search may leave a different low-value item out.
+
+Stacking rules, weights, trucks and unloading order switch the engine to `boxstacks`:
+
+```python
+from packingsolver3d import BinType, Instance, ItemType, Objective, boxstacks
+
+pallets = Instance(
+    bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5, maximum_weight=1000)],
+    item_types=[ItemType(x=20, y=30, z=40, copies=6, weight=5,
+                         stackability_id=0, maximum_stackability=3, maximum_weight_above=100)],
+    objective=Objective.BIN_PACKING,
+)
+result = boxstacks.solve(pallets, time_limit=2.0)
+print(result.status, result.number_of_bins, len(result.bins[0].stacks))   # Status.OPTIMAL 1 3
+```
+
+Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of silently dropping the stacking fields, which is what the upstream CSV reader would do. Every result can be drawn with `plot_result(result, color_by='stack')`; see the [visualisation guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/visualization/index.html).
+
 ## Scope
 
 PackingSolver covers several problem families. This package deliberately exposes only the two 3D ones:
@@ -60,58 +140,6 @@ A reproducible capability study is part of the documentation: 97 cases from thre
 
 The pictures above are static previews because GitHub cannot run plotly; the [gallery in the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/gallery/index.html) has the same scenes as rotatable, zoomable figures for our solution and four or five other participants on one case of each benchmark. The instances are small and constraint-free, each number is a single run, and the greedy libraries were designed for speed rather than optimality, so this is a capability study, not a ranking of packing software. Sources, versions, the protocol, the [complete per-case tables](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/leaderboards/index.html) (roster, cases and bounds, leaderboards, items placed, times) and the gallery are in the [benchmark section of the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/index.html); `make benchmarks` regenerates everything from `tools/make_benchmarks.py`.
 
-## Installation
-
-```shell
-pip install packingsolver3d
-```
-
-Wheels are published for Linux (x86_64, aarch64), macOS (x86_64, arm64) and Windows (AMD64, ARM64), for every CPython the platform has an official build of: 3.7 through 3.14 on Linux x86_64 and Windows AMD64, 3.8 through 3.14 on Linux aarch64 and macOS, 3.11 through 3.14 on Windows ARM64. No compiler is needed for a wheel install. Other architectures (i686, ppc64le, s390x, armv7l, riscv64, loongarch64) are not built as wheels; `pip` falls back to the sdist there. Installing from the sdist compiles PackingSolver and the bridge from the vendored sources and needs CMake >= 3.28, a C++17 compiler and network access for upstream's `FetchContent` dependencies.
-
-## Quick start
-
-```python
-from packingsolver3d import BinType, Instance, ItemType, Objective, box
-
-instance = Instance(
-    bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5)],
-    item_types=[ItemType(x=20, y=30, z=40, copies=6)],
-    objective=Objective.BIN_PACKING,
-)
-result = box.solve(instance, time_limit=2.0)
-
-print(result.status)          # Status.OPTIMAL
-print(result.number_of_bins)  # 1
-for placement in result.placements:
-    print(placement.bin_id, placement.x, placement.y, placement.z, placement.rotation)
-```
-
-Stacking rules switch the engine:
-
-```python
-from packingsolver3d import BinType, Instance, ItemType, Objective, boxstacks
-
-instance = Instance(
-    bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5, maximum_weight=1000)],
-    item_types=[ItemType(x=20, y=30, z=40, copies=6, weight=5,
-                         stackability_id=0, maximum_stackability=3, maximum_weight_above=100)],
-    objective=Objective.BIN_PACKING,
-)
-result = boxstacks.solve(instance, time_limit=2.0)
-print(len(result.bins[0].stacks))  # 3
-```
-
-Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of silently dropping the stacking fields, which is what the upstream CSV reader would do.
-
-Any result can be drawn:
-
-```python
-from packingsolver3d.visual import plot_result   # needs plotly
-
-figure = plot_result(result, color_by='stack')    # or 'item_type' (default), 'same'
-figure.show()                                     # interactive; figure.write_html('packing.html') to save
-```
-
 ## Design
 
 * **Value in, value out.** Public types are frozen dataclasses. There is no live solver handle, mutable session or callback; each `solve` call builds the upstream instance, runs `optimize()` and copies the best solution back into Python values.
@@ -131,6 +159,8 @@ packingsolver3d is a faithful binding: it does what PackingSolver does at the pi
 * **`boxstacks` accepts floor defects but places stacks over them** at the pinned commit (observed with corner, interior and full-width defects). `defects` are forwarded faithfully; do not rely on them being avoided.
 * **Limits are upstream's own checks and the solver runs in-process.** `time_limit` and `memory_limit` are checked at algorithm checkpoints; there is no hard memory limit and a crash inside upstream ends the interpreter. The [budgets guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/budgets/index.html) shows the worker-process pattern that restores both.
 * **Unset profit and cost default to geometry**: item profit to `x * y * z`, bin cost to `x * y` (an area).
+* **Upstream is not thread-safe.** Four threads calling `optimize()` at once crash the interpreter, so `solve` serialises native calls behind one process-wide lock (the GIL stays released); run parallel solves in worker processes.
+* **The `default` objective produces no solution.** It is upstream's unset placeholder, so `Instance` requires an explicit `objective` and `Objective.DEFAULT` is refused with `InvalidInstanceError`.
 * **`OPTIMAL` is only reported when the achieved value meets a bound upstream reported for that objective**; otherwise the result is `FEASIBLE`, however good it looks. Keep `value` and `bound` as two columns when you publish numbers.
 
 ## Development

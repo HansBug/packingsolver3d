@@ -25,6 +25,7 @@ Build-system adaptations happen from the outside, in the top-level `CMakeLists.t
 5. **Never build with both LP backends disabled.** The module is built with `PACKINGSOLVER_USE_CLP=OFF PACKINGSOLVER_USE_HIGHS=ON`, recorded in `CMakeLists.txt`, `config/meta.py` (`__LP_SOLVER__`) and `NOTICE.md`. Because upstream defaults the solver name to `CLP` and throws when no matching backend was compiled in, `linear_programming_solver` is set on every call.
 6. **Refusals are typed and carry upstream's own message.** Structural problems raise `InvalidInstanceError`; features the `box` model has no notion of raise `UnsupportedFeatureError`; stackability buckets upstream would assemble and then reject raise `StackSemanticsError`; a `std::invalid_argument` from upstream's `InstanceBuilder` surfaces as `InvalidInstanceError` and any other upstream exception as `SolverFailedError` with the partial `RunRecord` attached. Nothing returns an empty solution where an error is due.
 7. **Limits are upstream's.** `time_limit` goes to upstream's timer and `memory_limit` to its own memory check. There is no process boundary: a crash inside upstream takes the interpreter with it, and the docstrings say so. Do not add a hidden subprocess or thread-kill layer; callers who need isolation own their worker process.
+8. **An objective is always explicit.** `Instance.objective` has no default and `Objective.DEFAULT` (upstream's unset placeholder, which makes `optimize()` return nothing) is refused in `_encode._validate`; never reintroduce a default objective.
 8. **No broad `except Exception:`.** Name every expected exception class and justify it inline; in the bridge, let pybind11 translate `std::exception` rather than catching it.
 9. Code, comments, docstrings, commit messages, issue and pull-request bodies are in English.
 10. Python must run on CPython 3.7 through 3.14 on Linux, macOS and Windows; the bridge must compile with GCC 10+, Clang and MSVC 2022 as C++17.
@@ -151,6 +152,7 @@ Tests inside cibuildwheel copy `test/` into a scratch directory before running p
 - `_core.cpp` stays a bridge: it builds upstream objects, calls upstream, and copies results out. No solving logic, no caching, no state between calls.
 - Use upstream's types (`Length`, `BinPos`, `ItemTypeId`, ...) and upstream's stream operators for tokens; never re-implement a parser upstream already has.
 - Release the GIL around `optimize()` and touch no Python object while it is released.
+- Upstream is not thread-safe (four concurrent `optimize()` calls segfault at the pinned commit) and the bridge swaps `std::cout`'s buffer for the run log, so `_solve.solve_instance` holds the process-wide `_NATIVE_LOCK` around every native call. Never remove the lock or release it early; parallel solves belong in worker processes.
 - Capture `std::cout` / `std::cerr` for the duration of the call only, restored by RAII on every exit path.
 - Comments explain why, in English, and reference the upstream file when a workaround exists because of it.
 

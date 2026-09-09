@@ -54,6 +54,7 @@ class TestSolve:
         instance = Instance(
             bin_types=stack_instance.bin_types,
             item_types=[ItemType(x=2, y=3, z=4, group_id=1), ItemType(x=2, y=3, z=9, group_id=1)],
+            objective=Objective.BIN_PACKING,
         )
         boxstacks.validate(instance)
 
@@ -82,6 +83,7 @@ class TestSolve:
                 ItemType(x=20, y=30, z=40, stackability_id=0),
                 ItemType(x=30, y=20, z=10, stackability_id=0, rotations=[Rotation.YXZ]),
             ],
+            objective=Objective.BIN_PACKING,
         )
         boxstacks.validate(turning)
         oriented = Instance(
@@ -90,6 +92,7 @@ class TestSolve:
                 ItemType(x=20, y=30, z=40, stackability_id=0),
                 ItemType(x=30, y=20, z=10, stackability_id=0),
             ],
+            objective=Objective.BIN_PACKING,
         )
         with pytest.raises(StackSemanticsError):
             boxstacks.validate(oriented)
@@ -101,6 +104,7 @@ class TestSolve:
                 ItemType(x=20, y=30, z=40, stackability_id=0),
                 ItemType(x=40, y=30, z=20, stackability_id=0, rotations=[Rotation.XYZ, Rotation.ZYX]),
             ],
+            objective=Objective.BIN_PACKING,
         )
         boxstacks.validate(side)
 

@@ -142,7 +142,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install -U pip build twine
-          PACKINGSOLVER3D_SKIP_NATIVE_BUILD=1 python -m build --sdist --outdir dist
+          python -m build --sdist --outdir dist
           twine check dist/*
           ls -al dist
       - name: Upload sdist to artifacts

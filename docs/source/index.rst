@@ -25,26 +25,32 @@
 
 .. code-block:: python
 
-   from packingsolver3d import BinType, Instance, ItemType, Objective, box
+   from packingsolver3d import ALL_ROTATIONS, BinType, Instance, ItemType, Objective, box
+   from packingsolver3d.visual import plot_result       # pip install "packingsolver3d[plot]"
 
+   luggage = {  # name: (x, y, z, value, copies) -- 一个 55 x 40 x 23 cm 的登机箱和想带的东西
+       'laptop': (36, 25, 3, 10, 1), 'camera': (15, 10, 8, 9, 1), 'shoes': (30, 20, 12, 8, 1),
+       'jacket': (35, 20, 15, 6, 1), 'sweater': (30, 25, 8, 5, 2), 'toiletry bag': (25, 12, 10, 4, 1),
+       'hair dryer': (22, 9, 20, 3, 1), 'book': (24, 16, 4, 3, 4), 'souvenir': (10, 10, 10, 2, 6),
+       'water bottle': (8, 8, 25, 1, 1),
+   }
    instance = Instance(
-       bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5)],
-       item_types=[ItemType(x=20, y=30, z=40, copies=6)],
-       objective=Objective.BIN_PACKING,
+       bin_types=[BinType(x=55, y=40, z=23)],
+       item_types=[ItemType(x=x, y=y, z=z, profit=value, copies=n, rotations=ALL_ROTATIONS)
+                   for x, y, z, value, n in luggage.values()],
+       objective=Objective.KNAPSACK,                    # 最大化装进去的东西的总分
    )
-   result = box.solve(instance, time_limit=2.0)
+   result = box.solve(instance, time_limit=3.0)
 
-   assert result.status.name == 'OPTIMAL'
-   assert result.number_of_bins == 1
-   for placement in result.placements:
-       print(placement.bin_id, placement.x, placement.y, placement.z, placement.rotation)
+   print(result.status, result.value, result.bound)      # Status.FEASIBLE 69.0 72.0 -- 除了夹克全装进去了
+   plot_result(result, title='What fits in the carry-on').show()
 
 .. raw:: html
-   :file: _static/figures/box_bin_packing.html
+   :file: _static/figures/quick_start_suitcase.html
 
 .. only:: latex
 
-   .. image:: _static/figures/box_bin_packing.png
+   .. image:: _static/figures/quick_start_suitcase.png
       :width: 90%
 
 完整流程见 :doc:`tutorials/quick_start/index_zh`；在信任数字之前应了解的、继承自上游的行为汇总在 :doc:`explanations/upstream_behaviours/index_zh`。

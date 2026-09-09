@@ -125,7 +125,7 @@
      - 必填，非空
    * - ``objective``
      - ``set_objective``
-     - ``Objective.DEFAULT``\ （上游的 ``default`` 令牌）
+     - 必填；``Objective.DEFAULT``\ （上游未设置时的占位符）会被拒绝
    * - ``defects``
      - 逐项 ``add_defect``
      - ``()``

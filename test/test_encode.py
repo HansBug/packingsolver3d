@@ -39,7 +39,7 @@ class TestInstancePayload:
 
     def test_all_rotations_tokens(self):
         item = ItemType(x=1, y=1, z=1, rotations=ALL_ROTATIONS)
-        payload = instance_payload(Instance(bin_types=[BinType(x=5, y=5, z=5)], item_types=[item]))
+        payload = instance_payload(Instance(bin_types=[BinType(x=5, y=5, z=5)], item_types=[item], objective=Objective.KNAPSACK))
         assert payload['items'][0]['rotations'] == ['XYZ', 'YXZ', 'ZYX', 'YZX', 'XZY', 'ZXY']
 
     def test_stacking_fields(self, stack_instance):
@@ -59,7 +59,7 @@ class TestInstancePayload:
         truck = SemiTrailerTruck(tractor_weight=8000, front_axle_middle_axle_distance=380,
                                  harness_rear_axle_distance=800, rear_axle_maximum_weight=20000)
         instance = Instance(bin_types=[BinType(x=100, y=10, z=10, semi_trailer_truck=truck)],
-                            item_types=[ItemType(x=1, y=1, z=1)])
+                            item_types=[ItemType(x=1, y=1, z=1)], objective=Objective.KNAPSACK)
         spec = instance_payload(instance)['bins'][0]
         # Zero-valued geometry is forwarded (upstream's own default), unset maxima are left out.
         assert spec['semi_trailer_truck'] == {
@@ -76,11 +76,18 @@ class TestInstancePayload:
         assert payload['unloading_constraint'] is None
         instance = Instance(
             bin_types=defect_instance.bin_types, item_types=defect_instance.item_types,
-            unloading_constraint=UnloadingConstraint.ONLY_X_MOVEMENTS,
+            objective=defect_instance.objective, unloading_constraint=UnloadingConstraint.ONLY_X_MOVEMENTS,
         )
         assert instance_payload(instance)['unloading_constraint'] == 'only-x-movements'
         assert instance_payload(instance, UnloadingConstraint.NONE)['unloading_constraint'] == 'none'
-        assert instance_payload(instance)['objective'] == 'default'
+        assert instance_payload(instance)['objective'] == defect_instance.objective.value
+
+    def test_default_objective_is_refused(self, box_instance):
+        from packingsolver3d import Objective
+        from packingsolver3d.errors import InvalidInstanceError
+        instance = Instance(bin_types=box_instance.bin_types, item_types=box_instance.item_types, objective=Objective.DEFAULT)
+        with pytest.raises(InvalidInstanceError, match='unset placeholder'):
+            instance_payload(instance)
 
 
 @pytest.mark.unittest
@@ -103,5 +110,5 @@ class TestValidate:
     ])
     def test_rejects(self, kwargs, message):
         with pytest.raises(InvalidInstanceError) as exc_info:
-            instance_payload(Instance(**kwargs))
+            instance_payload(Instance(objective=Objective.BIN_PACKING, **kwargs))
         assert message in str(exc_info.value)

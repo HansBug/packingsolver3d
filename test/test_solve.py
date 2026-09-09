@@ -160,3 +160,28 @@ class TestSolveInstance:
         assert result.status == Status.NO_SOLUTION
         assert result.number_of_bins == 0
         assert result.placements == ()
+
+
+@pytest.mark.unittest
+class TestConcurrency:
+    def test_concurrent_solves_are_serialised(self, box_instance):
+        # Upstream is not thread-safe; solve_instance holds a process-wide lock around the native call.
+        import threading
+        from packingsolver3d import box
+        results, errors = [], []
+
+        def work():
+            try:
+                for _ in range(2):
+                    results.append(box.solve(box_instance, time_limit=0.5).number_of_bins)
+            except Exception as err:  # pragma: no cover - a failure here is the finding
+                errors.append(err)
+
+        threads = [threading.Thread(target=work) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert not errors
+        assert len(results) == 8
+        assert set(results) == {1}

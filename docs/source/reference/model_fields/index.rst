@@ -125,7 +125,7 @@ Mirrors upstream's ``SemiTrailerTruckData`` (``algorithms/truck.hpp``). Distance
      - required, non-empty
    * - ``objective``
      - ``set_objective``
-     - ``Objective.DEFAULT`` (upstream's ``default`` token)
+     - required; ``Objective.DEFAULT`` (upstream's unset placeholder) is refused
    * - ``defects``
      - ``add_defect`` per entry
      - ``()``

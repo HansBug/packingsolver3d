@@ -337,7 +337,9 @@ class Instance:
 
     :param bin_types: Available bin types, at least one.
     :param item_types: Item types to pack, at least one.
-    :param objective: What to optimise.
+    :param objective: What to optimise; required. :attr:`Objective.DEFAULT` is
+        upstream's unset placeholder and is refused at solve time, because
+        upstream's optimisers only run for an explicit objective.
     :param defects: Unusable floor rectangles.  ``boxstacks`` only.
         At the pinned upstream commit ``boxstacks`` reads them but does not
         keep stacks off them; see :func:`packingsolver3d.boxstacks.solve`.
@@ -358,7 +360,7 @@ class Instance:
 
     bin_types: Tuple[BinType, ...]
     item_types: Tuple[ItemType, ...]
-    objective: Objective = Objective.DEFAULT
+    objective: Objective
     defects: Tuple[Defect, ...] = field(default_factory=tuple)
     unloading_constraint: Optional[UnloadingConstraint] = None
 

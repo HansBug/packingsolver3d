@@ -65,3 +65,17 @@ anytime 运行不可逐次复现
 *上游。* 默认的 ``ANYTIME`` 模式使用线程与墙钟检查点；到时限时的当前解可能因运行而异。报告的界不依赖时序。
 
 *本包。* 需要两次运行一致时用 ``OptimizationMode.NOT_ANYTIME_DETERMINISTIC``\ （或上游测试所用的 ``NOT_ANYTIME_SEQUENTIAL``\ ），并总是记录 ``result.run.options``\ 。
+
+上游不是线程安全的
+------------------
+
+*观察。* 在固定的上游 commit 上，四个 Python 线程同时通过桥接层调用 ``optimize()`` 会让解释器段错误崩溃；桥接层为记录运行日志而对 ``std::cout`` 做的捕获本身也不可重入。
+
+*本包。* :func:`packingsolver3d.box.solve` 与 :func:`packingsolver3d.boxstacks.solve` 在原生调用外加一把进程级的锁，并发调用者排队等待，其他 Python 线程仍能继续运行（GIL 已释放）。并行求解请用工作进程，见 :doc:`/how_to/budgets/index_zh`\ 。
+
+``default`` 目标不产生任何解
+----------------------------
+
+*上游。* ``Objective::Default`` 是 ``Instance`` 在设置目标之前携带的占位符；上游命令行的 ``--objective`` 没有默认值，其优化器只为显式目标运行算法。以 ``default`` 求解的实例在箱子有多份时完全不返回装法，其他情况下返回的结果没有定义。
+
+*本包。* :class:`~packingsolver3d.model.Instance` 要求显式给出 ``objective``\ ，而 :attr:`Objective.DEFAULT <packingsolver3d.model.Objective.DEFAULT>`\ （因为是上游令牌而保留）会在调用求解器之前以 :class:`~packingsolver3d.errors.InvalidInstanceError` 拒绝。

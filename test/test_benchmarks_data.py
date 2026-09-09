@@ -7,7 +7,8 @@ import pytest
 pytest.importorskip('tools.make_benchmarks')
 from tools import make_benchmarks as mb
 
-pytestmark = pytest.mark.skipif(not os.path.isdir(mb.UPSTREAM_DATA), reason='upstream instance files (submodule) are not checked out')
+pytestmark = [pytest.mark.unittest,
+              pytest.mark.skipif(not os.path.isdir(mb.UPSTREAM_DATA), reason='upstream instance files (submodule) are not checked out')]
 
 
 def _entries(name):

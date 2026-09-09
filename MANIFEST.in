@@ -4,6 +4,7 @@ include LICENSE-packingsolver
 include NOTICE.md
 include MANIFEST.in
 include CMakeLists.txt
+recursive-include cmake *.cmake
 include pytest.ini
 include requirements.txt
 include requirements-*.txt

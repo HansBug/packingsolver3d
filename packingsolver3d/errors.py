@@ -40,7 +40,9 @@ class InvalidInstanceError(PackingSolverError, ValueError):
     Raised when an :class:`~packingsolver3d.model.Instance` cannot be encoded.
 
     This covers structurally broken instances (no bin types, no item types,
-    non-positive dimensions) and is raised before any process is spawned.
+    non-positive dimensions), raised before the native module is called, and
+    the rejections of upstream's ``InstanceBuilder`` itself, re-raised with
+    upstream's own message.
     """
 
 
@@ -60,17 +62,17 @@ class StackSemanticsError(InvalidInstanceError):
 
     Upstream groups item types into stacks by ``(group_id, stackability_id)``
     alone and only discovers a footprint mismatch when the solution builder
-    rejects the finished stack, which surfaces as an opaque non-zero exit.
+    rejects the finished stack, which surfaces as an opaque exception mid-solve.
     """
 
 
 class SolverFailedError(PackingSolverError, RuntimeError):
     """
-    Raised when the native executable exits non-zero or writes no output.
+    Raised when upstream throws during the solve itself.
 
-    :param message: Human readable summary.
+    :param message: Human readable summary, carrying upstream's own message.
     :param run: The :class:`~packingsolver3d.result.RunRecord` of the attempt,
-        carrying ``argv``, the exit code and the captured streams.
+        carrying the options handed to upstream and the wall time.
     """
 
     def __init__(self, message, run=None):

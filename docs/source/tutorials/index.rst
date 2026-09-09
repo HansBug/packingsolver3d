@@ -6,7 +6,7 @@ Use this page when you are new to packingsolver3d and want one small, observable
 Reading order
 -------------
 
-1. :doc:`quick_start/index` -- install the wheel, solve a ten-item bin packing instance with the ``box`` solver, and read the result: status, objective value, reported bound, placements.
+1. :doc:`quick_start/index` -- install the wheel, decide what fits in a carry-on with the ``box`` solver (a knapsack over nineteen pieces), read the result -- status, value, reported bound, placements -- and look at the packing.
 2. :doc:`boxstacks/index` -- the same model with stacking rules, weights, an unloading constraint and a semi-trailer truck, solved with the ``boxstacks`` solver.
 
 Where to go next

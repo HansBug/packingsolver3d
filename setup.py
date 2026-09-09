@@ -22,15 +22,15 @@ def _load_req(file: str):
         return [line.strip() for line in f.readlines() if line.strip()]
 
 
-requirements = _load_req('requirements.txt')
+requirements = _load_req(os.path.join(here, 'requirements.txt'))
 
 _REQ_PATTERN = re.compile('^requirements-([a-zA-Z0-9_]+)\\.txt$')
 group_requirements = {
-    item.group(1): _load_req(item.group(0))
-    for item in [_REQ_PATTERN.fullmatch(reqpath) for reqpath in os.listdir()] if item
+    item.group(1): _load_req(os.path.join(here, item.group(0)))
+    for item in [_REQ_PATTERN.fullmatch(reqpath) for reqpath in os.listdir(here)] if item
 }
 
-with open('README.md', 'r', 'utf-8') as f:
+with open(os.path.join(here, 'README.md'), 'r', 'utf-8') as f:
     readme = f.read()
 
 

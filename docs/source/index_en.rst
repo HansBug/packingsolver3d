@@ -25,26 +25,32 @@ Quick Start
 
 .. code-block:: python
 
-   from packingsolver3d import BinType, Instance, ItemType, Objective, box
+   from packingsolver3d import ALL_ROTATIONS, BinType, Instance, ItemType, Objective, box
+   from packingsolver3d.visual import plot_result       # pip install "packingsolver3d[plot]"
 
+   luggage = {  # name: (x, y, z, value, copies) -- a 55 x 40 x 23 cm carry-on and what you would like to take
+       'laptop': (36, 25, 3, 10, 1), 'camera': (15, 10, 8, 9, 1), 'shoes': (30, 20, 12, 8, 1),
+       'jacket': (35, 20, 15, 6, 1), 'sweater': (30, 25, 8, 5, 2), 'toiletry bag': (25, 12, 10, 4, 1),
+       'hair dryer': (22, 9, 20, 3, 1), 'book': (24, 16, 4, 3, 4), 'souvenir': (10, 10, 10, 2, 6),
+       'water bottle': (8, 8, 25, 1, 1),
+   }
    instance = Instance(
-       bin_types=[BinType(x=100, y=100, z=100, cost=10, copies=5)],
-       item_types=[ItemType(x=20, y=30, z=40, copies=6)],
-       objective=Objective.BIN_PACKING,
+       bin_types=[BinType(x=55, y=40, z=23)],
+       item_types=[ItemType(x=x, y=y, z=z, profit=value, copies=n, rotations=ALL_ROTATIONS)
+                   for x, y, z, value, n in luggage.values()],
+       objective=Objective.KNAPSACK,                    # maximise the value of what fits
    )
-   result = box.solve(instance, time_limit=2.0)
+   result = box.solve(instance, time_limit=3.0)
 
-   assert result.status.name == 'OPTIMAL'
-   assert result.number_of_bins == 1
-   for placement in result.placements:
-       print(placement.bin_id, placement.x, placement.y, placement.z, placement.rotation)
+   print(result.status, result.value, result.bound)      # Status.FEASIBLE 69.0 72.0 -- everything but the jacket
+   plot_result(result, title='What fits in the carry-on').show()
 
 .. raw:: html
-   :file: _static/figures/box_bin_packing.html
+   :file: _static/figures/quick_start_suitcase.html
 
 .. only:: latex
 
-   .. image:: _static/figures/box_bin_packing.png
+   .. image:: _static/figures/quick_start_suitcase.png
       :width: 90%
 
 The full walkthrough is :doc:`tutorials/quick_start/index`; the behaviours inherited from upstream that you should know before trusting a number are collected in :doc:`explanations/upstream_behaviours/index`.
