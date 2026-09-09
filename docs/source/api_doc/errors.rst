@@ -41,5 +41,3 @@ SolverFailedError
 
 .. autoclass:: SolverFailedError
     :members: __init__
-
-

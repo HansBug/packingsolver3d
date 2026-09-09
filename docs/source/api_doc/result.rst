@@ -52,5 +52,3 @@ Result
 
 .. autoclass:: Result
     :members: is_proven_optimal,number_of_bins,placements,to_json,status,bins,objective,value,bound,statistics,solve_time,run
-
-

@@ -4,6 +4,20 @@ Overview:
 
     Everything raised by this package derives from :class:`PackingSolverError`,
     so ``except PackingSolverError`` is enough to contain the whole binding.
+
+Example::
+
+    >>> from packingsolver3d import (InvalidInstanceError, PackingSolverError, SolverFailedError,
+    ...                              StackSemanticsError, UnsupportedFeatureError)
+    >>> issubclass(StackSemanticsError, InvalidInstanceError)
+    True
+    >>> issubclass(InvalidInstanceError, ValueError) and issubclass(SolverFailedError, RuntimeError)
+    True
+    >>> all(issubclass(e, PackingSolverError)
+    ...     for e in (InvalidInstanceError, UnsupportedFeatureError, SolverFailedError))
+    True
+    >>> SolverFailedError('upstream threw').run is None
+    True
 """
 
 __all__ = [

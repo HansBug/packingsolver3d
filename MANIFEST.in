@@ -8,7 +8,8 @@ include pytest.ini
 include requirements.txt
 include requirements-*.txt
 recursive-include packingsolver3d *.py *.cpp
-recursive-include test *.py
+recursive-include test *.py *.csv *.md
+recursive-include tools *.py
 # Upstream sources travel with the sdist so a source install can build them.
 graft upstream/packingsolver
 prune upstream/packingsolver/data

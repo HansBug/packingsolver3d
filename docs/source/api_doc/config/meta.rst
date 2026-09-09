@@ -58,5 +58,3 @@ packingsolver3d.config.meta
 -----------------------------------------------------
 
 .. autodata:: __LP_SOLVER__
-
-

@@ -6,15 +6,7 @@ packingsolver3d
 .. automodule:: packingsolver3d
 
 
-.. toctree::
-    :maxdepth: 3
+\_\_all\_\_
+-----------------------------------------------------
 
-    _encode
-    _solve
-    box
-    boxstacks
-    config/index
-    errors
-    model
-    result
-
+.. autodata:: __all__

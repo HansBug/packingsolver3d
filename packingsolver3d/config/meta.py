@@ -1,6 +1,15 @@
 """
 Overview:
     Meta information for the ``packingsolver3d`` package.
+
+    ``__UPSTREAM_COMMIT__`` is the commit of ``upstream/packingsolver`` the
+    bundled solvers were built from; it changes only when the submodule moves.
+
+Example::
+
+    >>> from packingsolver3d.config.meta import __TITLE__, __LP_SOLVER__, __UPSTREAM_COMMIT__
+    >>> __TITLE__, __LP_SOLVER__, len(__UPSTREAM_COMMIT__)
+    ('packingsolver3d', 'highs', 40)
 """
 
 #: Title of this project (should be `packingsolver3d`).

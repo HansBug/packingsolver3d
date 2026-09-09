@@ -84,6 +84,19 @@ Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of
 * **Honest statuses.** `OPTIMAL` requires a solver-reported bound for the requested objective and an achieved value meeting it; otherwise the result is `FEASIBLE`, however good it looks.
 * **In-process, by design.** `time_limit` and `memory_limit` are upstream's own checks. There is no process boundary: a crash inside upstream takes the interpreter with it, so callers who need isolation run `solve` in a worker process of their own.
 
+## Behaviours inherited from upstream
+
+packingsolver3d is a faithful binding: it does what PackingSolver does at the pinned commit and does not paper over it. These points were found while building the package; each is backed by an upstream source location or a reproducible observation, and the documentation page [Upstream behaviours you should know](https://packingsolver3d.readthedocs.io/en/latest/explanations/upstream_behaviours/index.html) carries the details.
+
+* **The LP backend is HiGHS and is always set.** Upstream defaults the name to CLP and throws "no linear programming solver found" once column generation starts; the bundled build has HiGHS only.
+* **`copies_min` defaults to "all copies".** Upstream's `-1` means every copy is mandatory (none under knapsack); an explicit `0` makes an empty packing the correct bin-packing optimum. `ItemType.copies_min` is therefore `None` unless you mean a minimum.
+* **`boxstacks` groups stacks by `(group_id, stackability_id)` without checking footprints**, and its solution builder then throws. `boxstacks.validate` refuses such instances up front with `StackSemanticsError`; give differently shaped items different `stackability_id` values.
+* **`boxstacks` keeps items upright.** Only the `XYZ` and `YXZ` rotations are placed; item types allowing neither are refused with `UnsupportedFeatureError`. `box` places all six rotations.
+* **`boxstacks` accepts floor defects but places stacks over them** at the pinned commit (observed with corner, interior and full-width defects). `defects` are forwarded faithfully; do not rely on them being avoided.
+* **Limits are upstream's own checks and the solver runs in-process.** `time_limit` and `memory_limit` are checked at algorithm checkpoints; there is no hard memory limit and a crash inside upstream ends the interpreter. The [budgets guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/budgets/index.html) shows the worker-process pattern that restores both.
+* **Unset profit and cost default to geometry**: item profit to `x * y * z`, bin cost to `x * y` (an area).
+* **`OPTIMAL` is only reported when the achieved value meets a bound upstream reported for that objective**; otherwise the result is `FEASIBLE`, however good it looks. Keep `value` and `bound` as two columns when you publish numbers.
+
 ## Development
 
 ```shell
@@ -91,7 +104,8 @@ git clone --recursive https://github.com/HansBug/packingsolver3d.git
 cd packingsolver3d
 pip install -r requirements-build.txt -r requirements-test.txt -r requirements-cov.txt
 make build      # compile upstream + the pybind11 bridge into packingsolver3d/_core
-make unittest   # pytest with coverage
+make unittest   # pytest + docstring examples, with coverage
+make doctest    # only the docstring examples (pytest --doctest-modules)
 LINETRACE=1 make build && make unittest   # coverage.xml then also covers the C++ bridge
 make rst_auto   # regenerate API reference pages
 make docs       # sphinx html

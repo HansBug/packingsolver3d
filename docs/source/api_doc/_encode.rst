@@ -1,3 +1,5 @@
+:orphan:
+
 packingsolver3d.\_encode
 ========================================================
 
@@ -16,5 +18,3 @@ instance\_payload
 -----------------------------------------------------
 
 .. autofunction:: instance_payload
-
-

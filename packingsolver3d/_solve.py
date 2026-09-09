@@ -71,6 +71,12 @@ def _number(value) -> Optional[float]:
 
     :param value: The raw JSON value.
     :return: A finite float, or ``None``.
+
+    Example::
+
+        >>> from packingsolver3d._solve import _number
+        >>> _number(3), _number(2.5), _number(None), _number(float('inf')), _number(True)
+        (3.0, 2.5, None, None, None)
     """
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return None
@@ -96,6 +102,20 @@ def _classify(
     :param output: The ``Output`` document of the solver.
     :param bins: The decoded bins.
     :return: ``(status, value, bound)``.
+
+    Example::
+
+        >>> from packingsolver3d import Objective, PackedBin, Status
+        >>> from packingsolver3d._solve import _classify
+        >>> packed = (PackedBin(bin_id=0, bin_type_id=0, copies=1, x=1, y=1, z=1),)
+        >>> output = {'BinPackingBound': 1, 'Solution': {'NumberOfItems': 4, 'NumberOfBins': 1}}
+        >>> _classify(Objective.BIN_PACKING, output, packed)
+        (<Status.OPTIMAL: 'optimal'>, 1.0, 1.0)
+        >>> output['Solution']['NumberOfBins'] = 2
+        >>> _classify(Objective.BIN_PACKING, output, packed)
+        (<Status.FEASIBLE: 'feasible'>, 2.0, 1.0)
+        >>> _classify(Objective.BIN_PACKING, {'Solution': {}}, ())
+        (<Status.NO_SOLUTION: 'no-solution'>, None, None)
     """
     statistics = output.get('Solution') or {}
 
@@ -149,6 +169,14 @@ def core_options(
     :param linear_programming_solver: Override for the LP backend name.  Only
         useful against a custom build.
     :return: The rendered options.
+
+    Example::
+
+        >>> from packingsolver3d._solve import core_options
+        >>> core_options()
+        {'verbosity_level': 0, 'linear_programming_solver': 'highs'}
+        >>> core_options(time_limit=5, memory_limit=1024)['time_limit']
+        5.0
     """
     options = {
         'verbosity_level': int(verbosity_level),

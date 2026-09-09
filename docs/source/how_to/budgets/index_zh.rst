@@ -1,0 +1,103 @@
+预算、算法开关与批量运行
+========================
+
+当实例不是瞬间就能解完——研究实验、基准测试、有响应时间要求的服务——请用本页。
+
+时间预算
+--------
+
+.. code-block:: python
+
+   result = box.solve(instance, time_limit=35.0)
+
+``time_limit``\ （秒）交给上游的计时器。各搜索阶段在自己的检查点看表，因此一次运行可能超出一个检查点间隔；若精确数字重要，请测量 ``result.run.wall_time``\ 。不设限制时上游会跑完整个日程，在难实例上意味着非常久。
+
+内存预算
+--------
+
+.. code-block:: python
+
+   result = box.solve(instance, time_limit=35.0, memory_limit=4096)
+
+``memory_limit``\ （MiB）即上游自己的 ``memory_limit_megabytes``\ ：求解器在检查点把常驻内存与之比较并停止增长。这是软限制——求解器之外没有任何东西强制它。下面"隔离"一节说明如何加硬限制。
+
+优化模式
+--------
+
+:class:`~packingsolver3d.model.OptimizationMode` 选择上游的日程：
+
+* ``ANYTIME``\ （默认）在限制内持续改进当前解；
+* ``NOT_ANYTIME`` 与 ``NOT_ANYTIME_DETERMINISTIC`` 跑固定日程，后者可复现；
+* ``NOT_ANYTIME_SEQUENTIAL`` 是把顺序模式一路下传到各子求解器的固定日程，上游自己的单元测试用它。
+
+.. code-block:: python
+
+   from packingsolver3d import OptimizationMode
+   result = box.solve(instance, time_limit=35.0,
+                      optimization_mode=OptimizationMode.NOT_ANYTIME_DETERMINISTIC)
+
+算法开关
+--------
+
+``box`` 求解器把算法组合暴露为关键字参数，各取 ``True`` / ``False`` / ``None``\ （交给上游）：``use_tree_search``、``use_tree_search_maximal_spaces``、``use_sequential_single_knapsack``、``use_sequential_value_correction``、``use_column_generation``、``use_dichotomic_search``、``use_dual_feasible_functions``\ 。``boxstacks`` 没有开关。各开关对应的上游参数见 :doc:`/reference/solver_options/index_zh`。
+
+日志
+----
+
+``verbosity_level=1``\ （或更高）让上游打印进度表；文本被捕获进 ``result.run.stdout`` 而不是你的终端。
+
+批量运行
+--------
+
+每个结果都带着复现所需的一切。一个实验循环通常把状态、达到值、报告的界分开保存：
+
+.. code-block:: python
+
+   rows = []
+   for name, inst in instances.items():
+       r = box.solve(inst, time_limit=35.0, memory_limit=4096,
+                     optimization_mode=OptimizationMode.NOT_ANYTIME_DETERMINISTIC)
+       rows.append({
+           'instance': name,
+           'status': r.status.value,           # 'optimal' / 'feasible' / 'no-solution' / 'infeasible'
+           'value': r.value, 'bound': r.bound, # 永远不要把这两列合并
+           'bins': r.number_of_bins,
+           'solve_time': r.solve_time, 'wall_time': r.run.wall_time,
+           'options': r.run.options,           # 上游实际收到的全部参数
+       })
+
+``result.to_json()`` 是与机器无关的装箱快照（有意不含 ``run``\ ）。
+
+隔离：硬限制与崩溃隔离
+----------------------
+
+求解器运行在你的解释器内部，由此带来两个后果：上游内部的崩溃会结束整个进程；从内部无法施加硬性内存限制。两者任一重要时，把每次求解放到工作进程里跑。:class:`~packingsolver3d.model.Instance` 与 :class:`~packingsolver3d.result.Result` 都可 pickle，所以只需几行：
+
+.. code-block:: python
+
+   import multiprocessing as mp
+   import resource
+
+   def _worker(conn, instance, kwargs, mem_mib):
+       limit = mem_mib * 1024 * 1024
+       resource.setrlimit(resource.RLIMIT_AS, (limit, limit))   # 仅 POSIX
+       from packingsolver3d import box
+       try:
+           conn.send(('ok', box.solve(instance, **kwargs)))
+       except Exception as err:                                  # 上游侧失败
+           conn.send(('error', repr(err)))
+
+   def solve_isolated(instance, time_limit=35.0, mem_mib=4096, grace=30.0, **kwargs):
+       parent, child = mp.Pipe(duplex=False)
+       kwargs.update(time_limit=time_limit, memory_limit=mem_mib)
+       p = mp.get_context('spawn').Process(target=_worker, args=(child, instance, kwargs, mem_mib))
+       p.start()
+       p.join(time_limit + grace)
+       if p.is_alive():
+           p.kill(); p.join()
+           return 'timeout', None
+       if not parent.poll():
+           return 'crashed', p.exitcode
+       return parent.recv()
+
+这就给了基准测试通常想要的三层保护：上游自己的软限制、硬性的地址空间限制、以及同时能兜住崩溃的墙钟守卫。

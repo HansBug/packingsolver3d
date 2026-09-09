@@ -1,4 +1,4 @@
-.PHONY: docs docs_en docs_zh pdocs test unittest build build_clean package clean rst_auto help
+.PHONY: docs docs_en docs_zh pdocs test unittest doctest build build_clean package clean rst_auto help
 
 PYTHON := $(shell which python)
 
@@ -46,8 +46,11 @@ help:
 	@echo "  make unittest     - Run unit tests with pytest"
 	@echo "                      Options: RANGE_DIR=<dir> COV_TYPES='xml term-missing'"
 	@echo "                               MIN_COVERAGE=<percent> WORKERS=<n>"
-	@echo "                      After 'LINETRACE=1 make build', coverage.xml also carries"
-	@echo "                      the gcov line coverage of packingsolver3d/_core.cpp"
+	@echo "                      Runs the docstring examples as a second pass and folds"
+	@echo "                      them into the same coverage.xml; after 'LINETRACE=1 make build'"
+	@echo "                      that file also carries the gcov coverage of _core.cpp"
+	@echo "  make doctest      - Run every >>> example under packingsolver3d/ (pytest --doctest-modules)"
+	@echo "                      Options: DOCTEST_SCOPE=packingsolver3d/<module>.py DOCTEST_ARGS='-q'"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         - Build documentation (auto-detects language)"
@@ -96,6 +99,12 @@ test: unittest
 # the remaining partial lines as hits so the dashboard matches the table below.
 GCOV_DATA_DIR := ${CMAKE_BUILD_DIR}/CMakeFiles/_core.dir/packingsolver3d
 
+# Docstring examples: every >>> block under the package is executed by pytest.
+# The flags match sphinx.ext.doctest's defaults; pytest's own default is ELLIPSIS
+# alone and setting the option replaces it, so the full set is always listed.
+DOCTEST_SCOPE ?= ${SRC_DIR}
+DOCTEST_FLAGS ?= ELLIPSIS IGNORE_EXCEPTION_DETAIL DONT_ACCEPT_TRUE_FOR_1
+
 unittest:
 	UNITTEST=1 \
 		$(PYTHON) -m pytest "${RANGE_TEST_DIR}" \
@@ -105,6 +114,11 @@ unittest:
 		--cov="${RANGE_SRC_DIR}" \
 		$(if ${MIN_COVERAGE},--cov-fail-under=${MIN_COVERAGE},) \
 		$(if ${WORKERS},-n ${WORKERS},)
+	UNITTEST=1 \
+		$(PYTHON) -m pytest "${DOCTEST_SCOPE}" \
+		--doctest-modules -p tools.doctest_plugin \
+		-o doctest_optionflags="${DOCTEST_FLAGS}" \
+		$(if $(filter xml,${COV_TYPES}),--cov="${RANGE_SRC_DIR}" --cov-append --cov-report=xml,)
 	@if ls "${GCOV_DATA_DIR}"/*.gcda >/dev/null 2>&1 && [ -f coverage.xml ] \
 		&& $(PYTHON) -m gcovr --help 2>/dev/null | grep -q -- --cobertura-add-tracefile; then \
 		echo "Folding gcov coverage of packingsolver3d/_core.cpp into coverage.xml"; \
@@ -119,6 +133,14 @@ unittest:
 	else \
 		echo "C++ coverage not folded in: needs gcov data ('LINETRACE=1 make build') and gcovr >= 8"; \
 	fi
+
+# The gate alone, without coverage: a docstring is a published contract and an
+# example that cannot run is a defect, never something to skip.
+doctest:
+	$(PYTHON) -m pytest "${DOCTEST_SCOPE}" \
+		--doctest-modules -p tools.doctest_plugin \
+		-o doctest_optionflags="${DOCTEST_FLAGS}" \
+		$(DOCTEST_ARGS)
 
 docs:
 	$(MAKE) -C "${DOC_DIR}" build

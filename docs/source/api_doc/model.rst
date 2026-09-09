@@ -53,11 +53,18 @@ ItemType
     :members: is_stackable,__repr__,x,y,z,profit,weight,copies,copies_min,rotations,group_id,stackability_id,nesting_height,maximum_stackability,maximum_weight_above,STACKING_FIELDS
 
 
+SemiTrailerTruck
+-----------------------------------------------------
+
+.. autoclass:: SemiTrailerTruck
+    :members: tractor_weight,front_axle_middle_axle_distance,front_axle_tractor_gravity_center_distance,front_axle_harness_distance,empty_trailer_weight,harness_rear_axle_distance,trailer_gravity_center_rear_axle_distance,trailer_start_harness_distance,rear_axle_maximum_weight,middle_axle_maximum_weight
+
+
 BinType
 -----------------------------------------------------
 
 .. autoclass:: BinType
-    :members: is_stackable,__repr__,x,y,z,cost,copies,copies_min,maximum_weight,maximum_stack_density,STACKING_FIELDS
+    :members: is_stackable,__repr__,x,y,z,cost,copies,copies_min,maximum_weight,maximum_stack_density,semi_trailer_truck,STACKING_FIELDS
 
 
 Defect
@@ -72,5 +79,3 @@ Instance
 
 .. autoclass:: Instance
     :members: __post_init__,needs_stacking,bin_types,item_types,objective,defects,unloading_constraint
-
-

@@ -34,6 +34,14 @@ class Status(Enum):
     ``OPTIMAL`` is only reported when the objective value equals a bound the
     solver itself reported, so it always means *proven* optimal rather than
     "the heuristic stopped improving".
+
+    Example::
+
+        >>> from packingsolver3d import Status
+        >>> Status('optimal') is Status.OPTIMAL
+        True
+        >>> [status.value for status in Status]
+        ['optimal', 'feasible', 'no-solution', 'infeasible']
     """
 
     OPTIMAL = 'optimal'
@@ -60,6 +68,16 @@ class Placement:
     :param stack_id: Stack this copy belongs to, or ``None`` for ``box``
         results which have no stacks.
     :param group_id: Unloading group, ``boxstacks`` only.
+
+    Example::
+
+        >>> from packingsolver3d import Placement, Rotation
+        >>> placement = Placement(item_type_id=0, bin_id=0, x=0, y=0, z=0, lx=20, ly=30, lz=40,
+        ...                       rotation=Rotation.XYZ)
+        >>> (placement.x + placement.lx, placement.y + placement.ly, placement.z + placement.lz)
+        (20, 30, 40)
+        >>> placement.stack_id is None  # box results carry no stacks
+        True
     """
 
     item_type_id: int
@@ -90,6 +108,13 @@ class Stack:
     :param lx: Footprint extent along x.
     :param ly: Footprint extent along y.
     :param lz: Total height of the pile.
+
+    Example::
+
+        >>> from packingsolver3d import Stack
+        >>> stack = Stack(stack_id=0, bin_id=0, x=0, y=0, lx=20, ly=30, lz=80)
+        >>> stack.lz
+        80
     """
 
     stack_id: int
@@ -118,6 +143,13 @@ class PackedBin:
     :param z: Extent of the bin along z.
     :param placements: Item copies packed into one of these bins.
     :param stacks: Stacks in one of these bins, ``boxstacks`` only.
+
+    Example::
+
+        >>> from packingsolver3d import PackedBin
+        >>> packed = PackedBin(bin_id=0, bin_type_id=0, copies=1, x=100, y=100, z=100)
+        >>> (packed.placements, packed.stacks)
+        ((), ())
     """
 
     bin_id: int
@@ -144,6 +176,13 @@ class RunRecord:
     :param stdout: What upstream wrote to standard output during the solve.
     :param stderr: What upstream wrote to standard error during the solve.
     :param wall_time: Seconds the call took, measured from Python.
+
+    Example::
+
+        >>> from packingsolver3d import RunRecord
+        >>> record = RunRecord(problem_type='box', options={'time_limit': 2.0}, stdout='', stderr='', wall_time=0.01)
+        >>> record.options['time_limit']
+        2.0
     """
 
     problem_type: str
@@ -171,6 +210,16 @@ class Result:
     :param solve_time: Seconds the solver reports having spent, from
         ``Output.Time``.
     :param run: How the process was invoked, see :class:`RunRecord`.
+
+    Example::
+
+        >>> from packingsolver3d import Objective, Result, Status
+        >>> empty = Result(status=Status.NO_SOLUTION, bins=(), objective=Objective.BIN_PACKING)
+        >>> (empty.number_of_bins, empty.placements, empty.is_proven_optimal)
+        (0, (), False)
+        >>> import json
+        >>> json.loads(empty.to_json())['status']
+        'no-solution'
     """
 
     status: Status
