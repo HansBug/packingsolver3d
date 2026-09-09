@@ -25,21 +25,27 @@ add_subdirectory(upstream/packingsolver EXCLUDE_FROM_ALL)
 # extension module has to use the DLL runtime CPython itself links against, so
 # every target underneath the submodule (FetchContent dependencies included)
 # is switched over here rather than by patching upstream.
+# Only real binary targets carry a runtime library; BUILDSYSTEM_TARGETS also
+# lists ALIAS, INTERFACE, IMPORTED and utility targets, which reject or ignore
+# the property.
+set(PS3D_RUNTIME_TARGET_TYPES STATIC_LIBRARY SHARED_LIBRARY MODULE_LIBRARY OBJECT_LIBRARY EXECUTABLE)
+function(ps3d_use_dll_runtime dir)
+    get_property(targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target IN LISTS targets)
+        get_target_property(aliased "${target}" ALIASED_TARGET)
+        get_target_property(imported "${target}" IMPORTED)
+        get_target_property(type "${target}" TYPE)
+        if(NOT aliased AND NOT imported AND type IN_LIST PS3D_RUNTIME_TARGET_TYPES)
+            set_target_properties("${target}" PROPERTIES
+                MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+        endif()
+    endforeach()
+    get_property(subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
+    foreach(subdir IN LISTS subdirs)
+        ps3d_use_dll_runtime("${subdir}")
+    endforeach()
+endfunction()
 if(MSVC)
-    function(ps3d_use_dll_runtime dir)
-        get_property(targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
-        foreach(target IN LISTS targets)
-            get_target_property(type "${target}" TYPE)
-            if(NOT type STREQUAL "INTERFACE_LIBRARY")
-                set_target_properties("${target}" PROPERTIES
-                    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-            endif()
-        endforeach()
-        get_property(subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
-        foreach(subdir IN LISTS subdirs)
-            ps3d_use_dll_runtime("${subdir}")
-        endforeach()
-    endfunction()
     ps3d_use_dll_runtime("${CMAKE_CURRENT_SOURCE_DIR}/upstream/packingsolver")
 endif()
 
