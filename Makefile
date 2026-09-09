@@ -102,7 +102,8 @@ unittest:
 		--cov="${RANGE_SRC_DIR}" \
 		$(if ${MIN_COVERAGE},--cov-fail-under=${MIN_COVERAGE},) \
 		$(if ${WORKERS},-n ${WORKERS},)
-	@if ls "${GCOV_DATA_DIR}"/*.gcda >/dev/null 2>&1 && [ -f coverage.xml ]; then \
+	@if ls "${GCOV_DATA_DIR}"/*.gcda >/dev/null 2>&1 && [ -f coverage.xml ] \
+		&& $(PYTHON) -m gcovr --help 2>/dev/null | grep -q -- --cobertura-add-tracefile; then \
 		echo "Folding gcov coverage of packingsolver3d/_core.cpp into coverage.xml"; \
 		$(PYTHON) -m gcovr --root "${PROJ_DIR}" --object-directory "${CMAKE_BUILD_DIR}" \
 			--filter "packingsolver3d/_core\\.cpp" --cobertura .coverage-cpp.xml && \
@@ -111,7 +112,7 @@ unittest:
 			--cobertura .coverage-merged.xml --txt=- --print-summary && \
 		mv -f .coverage-merged.xml coverage.xml && rm -f .coverage-cpp.xml; \
 	else \
-		echo "No gcov data for packingsolver3d/_core.cpp; run 'LINETRACE=1 make build' to include C++ coverage"; \
+		echo "C++ coverage not folded in: needs gcov data ('LINETRACE=1 make build') and gcovr >= 8"; \
 	fi
 
 docs:
