@@ -10,8 +10,7 @@ TEST_DIR      := ${PROJ_DIR}/test
 TESTFILE_DIR  := ${TEST_DIR}/testfile
 SRC_DIR       := ${PROJ_DIR}/packingsolver3d
 UPSTREAM_DIR  := ${PROJ_DIR}/upstream/packingsolver
-BIN_DIR       := ${SRC_DIR}/bin
-NATIVE_BUILD_DIR := ${BUILD_DIR}/upstream
+CMAKE_BUILD_DIR := ${BUILD_DIR}/cmake
 
 RANGE_DIR      ?= .
 RANGE_TEST_DIR := ${TEST_DIR}/${RANGE_DIR}
@@ -19,7 +18,7 @@ RANGE_SRC_DIR  := ${SRC_DIR}/${RANGE_DIR}
 
 COV_TYPES ?= xml term-missing
 
-# Native build knobs; JOBS defaults to every core, see tools/build_upstream.py.
+# Native build knobs; JOBS defaults to every core, see setup.py.
 JOBS ?=
 
 # RST documentation generation variables
@@ -36,9 +35,9 @@ help:
 	@echo "============================"
 	@echo ""
 	@echo "Building and Packaging:"
-	@echo "  make build        - Build the upstream PackingSolver executables into ${BIN_DIR}"
+	@echo "  make build        - Build the _core extension (upstream + pybind11 bridge) in place"
 	@echo "                      Options: JOBS=<n>"
-	@echo "  make build_clean  - Remove the native build tree and staged executables"
+	@echo "  make build_clean  - Remove the CMake build tree and the built extension"
 	@echo "  make package      - Build Python package (sdist and wheel)"
 	@echo "  make clean        - Remove build artifacts"
 	@echo ""
@@ -64,20 +63,21 @@ help:
 	@echo ""
 
 build:
-	$(PYTHON) tools/build_upstream.py \
-		--source "${UPSTREAM_DIR}" \
-		--build-dir "${NATIVE_BUILD_DIR}" \
-		--output-dir "${BIN_DIR}" \
-		$(if ${JOBS},--jobs ${JOBS},)
+	$(if ${JOBS},CMAKE_BUILD_PARALLEL_LEVEL=${JOBS},) \
+		PACKINGSOLVER3D_BUILD_DIR="${CMAKE_BUILD_DIR}" \
+		$(PYTHON) setup.py build_ext --inplace
 
 build_clean:
-	rm -rf ${NATIVE_BUILD_DIR}
-	rm -f ${BIN_DIR}/packingsolver_box ${BIN_DIR}/packingsolver_boxstacks ${BIN_DIR}/*.exe
+	rm -rf ${CMAKE_BUILD_DIR}
+	rm -f ${SRC_DIR}/_core*.so ${SRC_DIR}/_core*.pyd
 
+# The wheel is built from the source tree, not from the sdist, so the shared
+# CMake tree in ${CMAKE_BUILD_DIR} is reused instead of rebuilding upstream.
 package:
-	rm -rf ${BUILD_DIR}/lib ${BUILD_DIR}/bdist.*
+	rm -rf ${BUILD_DIR}/lib* ${BUILD_DIR}/bdist.* ${BUILD_DIR}/temp.*
 	rm -f ${DIST_DIR}/*.whl ${DIST_DIR}/*.tar.gz
-	$(PYTHON) -m build --sdist --wheel --outdir ${DIST_DIR}
+	$(PYTHON) -m build --sdist --outdir ${DIST_DIR}
+	PACKINGSOLVER3D_BUILD_DIR="${CMAKE_BUILD_DIR}" $(PYTHON) -m build --wheel --outdir ${DIST_DIR}
 
 clean:
 	rm -rf ${DIST_DIR} ${BUILD_DIR} *.egg-info

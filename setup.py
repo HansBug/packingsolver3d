@@ -1,16 +1,13 @@
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 from codecs import open
 
-from setuptools import find_packages, setup
-from setuptools.command.build_py import build_py as _build_py
-
-try:
-    from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
-except ImportError:  # setuptools < 70.1 still keeps the command in the wheel package
-    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
 
 _package_name = "packingsolver3d"
 
@@ -36,40 +33,147 @@ group_requirements = {
 with open('README.md', 'r', 'utf-8') as f:
     readme = f.read()
 
-_BIN_DIR = os.path.join(here, _package_name, 'bin')
-_EXECUTABLES = ('packingsolver_box', 'packingsolver_boxstacks')
-_EXE_SUFFIX = '.exe' if sys.platform == 'win32' else ''
+
+class CMakeExtension(Extension):
+    def __init__(self, name, sourcedir=''):
+        Extension.__init__(self, name, sources=[])
+        self.sourcedir = os.path.abspath(sourcedir)
 
 
-def _executables_present():
-    return all(
-        os.path.isfile(os.path.join(_BIN_DIR, name + _EXE_SUFFIX))
-        for name in _EXECUTABLES
-    )
+# FindPython (Python_*, _Python*), pybind11 (pybind11_*, PYBIND11_*) and
+# pybind11's legacy module-extension cache (PYTHON_MODULE_EXTENSION and friends,
+# which would otherwise name a module built against another interpreter).
+_PYTHON_CACHE_PREFIXES = (
+    'Python_', '_Python', 'pybind11_', 'PYBIND11_', 'PYTHON_',
+    'FIND_PACKAGE_MESSAGE_DETAILS_Python', 'FIND_PACKAGE_MESSAGE_DETAILS_pybind11',
+)
 
 
-class build_py(_build_py):
+def _prepare_build_dir(build_dir, sourcedir):
     """
-    Build the upstream executables first when nothing is staged yet.
+    Make an existing CMake tree safe to reconfigure from this checkout.
 
-    cibuildwheel stages them in ``before-all`` so wheel builds skip this; a
-    source install (sdist) lands here and needs CMake plus a compiler.
+    A tree configured from another source directory (a restored cache in a
+    different workspace, an unpacked sdist) cannot be reused and is removed;
+    one configured from this checkout only loses its interpreter-specific
+    cache entries.
+    """
+    cache = os.path.join(build_dir, 'CMakeCache.txt')
+    if not os.path.isfile(cache):
+        return
+    with open(cache, 'r', 'utf-8') as f:
+        for line in f:
+            if line.startswith('CMAKE_HOME_DIRECTORY:INTERNAL='):
+                home = line.split('=', 1)[1].strip()
+                if os.path.normcase(os.path.realpath(home)) != os.path.normcase(os.path.realpath(sourcedir)):
+                    print('discarding CMake tree configured from', home, flush=True)
+                    shutil.rmtree(build_dir)
+                    return
+                break
+    _forget_python_cache(build_dir)
+
+
+def _forget_python_cache(build_dir):
+    """
+    Drop the interpreter-specific entries from an existing CMake cache.
+
+    The tree is shared between interpreters.  FindPython keeps the previous
+    interpreter's include directory and SOABI in the cache and then fails to
+    find ``Development.Module`` for the next one, and ``cmake -U`` cannot be
+    combined with the ``-D`` that names the new executable on one command line
+    (the glob would remove it again), so the cache file is edited directly.
+    """
+    cache = os.path.join(build_dir, 'CMakeCache.txt')
+    if not os.path.isfile(cache):
+        return
+    with open(cache, 'r', 'utf-8') as f:
+        lines = f.readlines()
+
+    # An entry is "NAME:TYPE=VALUE" preceded by its "//" help lines; both go
+    # together, otherwise CMake trips over a help block with no entry after it.
+    kept, help_lines, dropped = [], [], 0
+    for line in lines:
+        if line.startswith('//'):
+            help_lines.append(line)
+            continue
+        is_entry = bool(line.strip()) and not line.startswith('#') and ':' in line and '=' in line
+        if is_entry and line.startswith(_PYTHON_CACHE_PREFIXES):
+            help_lines = []
+            dropped += 1
+            continue
+        kept.extend(help_lines)
+        help_lines = []
+        kept.append(line)
+    kept.extend(help_lines)
+
+    if dropped:
+        with open(cache, 'w', 'utf-8') as f:
+            f.writelines(kept)
+
+
+class CMakeBuild(build_ext):
+    """
+    Drive the top-level CMakeLists.txt, which compiles upstream PackingSolver
+    and the pybind11 bridge into one extension module.
+
+    The build directory is fixed (``build/cmake`` unless
+    ``PACKINGSOLVER3D_BUILD_DIR`` says otherwise) rather than setuptools'
+    per-interpreter ``build_temp``: upstream's objects do not depend on the
+    Python version, so reconfiguring the same tree for the next interpreter
+    only rebuilds the bridge.  cibuildwheel relies on this to build eight
+    wheels per job in little more than the time of one.
     """
 
     def run(self):
-        if not _executables_present() and not os.environ.get('PACKINGSOLVER3D_SKIP_NATIVE_BUILD'):
-            subprocess.check_call([sys.executable, os.path.join(here, 'tools', 'build_upstream.py')])
-            # package_data was scanned lazily before bin/ was populated; force a rescan.
-            self.__dict__.pop('data_files', None)
-        _build_py.run(self)
+        try:
+            subprocess.check_output([self._cmake(), '--version'])
+        except OSError:
+            raise RuntimeError('CMake >= 3.28 must be installed to build ' +
+                               ', '.join(e.name for e in self.extensions))
+        for ext in self.extensions:
+            self.build_extension(ext)
 
+    @staticmethod
+    def _cmake():
+        return os.environ.get('CMAKE') or shutil.which('cmake') or 'cmake'
 
-class bdist_wheel(_bdist_wheel):
-    """The Python is pure but the executables are not: force a platform tag."""
+    def build_extension(self, ext):
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        cfg = 'Debug' if self.debug else 'Release'
+        build_dir = os.environ.get('PACKINGSOLVER3D_BUILD_DIR') or os.path.join(here, 'build', 'cmake')
+        os.makedirs(build_dir, exist_ok=True)
 
-    def finalize_options(self):
-        _bdist_wheel.finalize_options(self)
-        self.root_is_pure = False
+        _prepare_build_dir(build_dir, ext.sourcedir)
+        os.makedirs(build_dir, exist_ok=True)
+        cmake_args = [
+            '-S', ext.sourcedir,
+            '-B', build_dir,
+            '-DCMAKE_BUILD_TYPE=' + cfg,
+            '-DPython_EXECUTABLE=' + sys.executable,
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_' + cfg.upper() + '=' + extdir,
+        ]
+        try:
+            import pybind11
+        except ImportError:  # CMake may still find a system-wide pybind11
+            pass
+        else:
+            cmake_args.append('-Dpybind11_DIR=' + pybind11.get_cmake_dir())
+        generator = os.environ.get('CMAKE_GENERATOR')
+        if generator:
+            cmake_args.extend(['-G', generator])
+        extra = os.environ.get('PACKINGSOLVER3D_CMAKE_ARGS')
+        if extra:
+            cmake_args.extend(shlex.split(extra))
+
+        build_args = ['--build', build_dir, '--config', cfg, '--target', '_core']
+        if not os.environ.get('CMAKE_BUILD_PARALLEL_LEVEL'):
+            build_args.extend(['--parallel', str(os.cpu_count() or 2)])
+
+        print('cmake', ' '.join(cmake_args), flush=True)
+        subprocess.check_call([self._cmake()] + cmake_args)
+        print('cmake', ' '.join(build_args), flush=True)
+        subprocess.check_call([self._cmake()] + build_args)
 
 
 setup(
@@ -85,7 +189,7 @@ setup(
     author=meta['__AUTHOR__'],
     author_email=meta['__AUTHOR_EMAIL__'],
     license='MIT',
-    keywords='packingsolver bin-packing 3d box boxstacks knapsack container-loading',
+    keywords='packingsolver bin-packing 3d box boxstacks knapsack container-loading pybind11',
     url='https://github.com/HansBug/packingsolver3d',
     project_urls={
         'Homepage': 'https://github.com/HansBug/packingsolver3d',
@@ -100,11 +204,11 @@ setup(
 
     # environment
     python_requires=">=3.7",
-    cmdclass=dict(build_py=build_py, bdist_wheel=bdist_wheel),
+    ext_modules=[
+        CMakeExtension('%s._core' % _package_name),
+    ],
+    cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
-    package_data={
-        '%s.bin' % _package_name: ['packingsolver_box', 'packingsolver_boxstacks', '*.exe'],
-    },
     install_requires=requirements,
     extras_require=group_requirements,
     classifiers=[

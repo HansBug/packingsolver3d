@@ -16,9 +16,9 @@
 [![Contributors](https://img.shields.io/github/contributors/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/graphs/contributors)
 [![GitHub license](https://img.shields.io/github/license/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/blob/master/LICENSE)
 
-Pythonic bindings for the two three-dimensional solvers of [PackingSolver](https://github.com/fontanf/packingsolver), `box` and `boxstacks`, shipped as wheels that carry the upstream executables precompiled.
+Pythonic bindings for the two three-dimensional solvers of [PackingSolver](https://github.com/fontanf/packingsolver), `box` and `boxstacks`. The upstream C++ is compiled together with a thin pybind11 bridge into one extension module, so a wheel install needs no compiler and every solve runs in-process.
 
-> **Unofficial distribution.** This project is maintained independently of PackingSolver and is not endorsed by its author. The executables are built unmodified from the upstream commit recorded in `packingsolver3d/config/meta.py`; see [NOTICE.md](NOTICE.md) for the exact build configuration and licensing.
+> **Unofficial distribution.** This project is maintained independently of PackingSolver and is not endorsed by its author. The solvers are built unmodified from the upstream commit recorded in `packingsolver3d/config/meta.py`; see [NOTICE.md](NOTICE.md) for the exact build configuration and licensing.
 
 ## Scope
 
@@ -26,8 +26,8 @@ PackingSolver covers several problem families. This package deliberately exposes
 
 | Module | Upstream solver | What it adds |
 |---|---|---|
-| `packingsolver3d.box` | `packingsolver_box` | Plain 3D bin packing: bins, items, rotations, weight capacity, the full algorithm portfolio as keyword switches |
-| `packingsolver3d.boxstacks` | `packingsolver_boxstacks` | Everything above plus stacks, stackability ids, nesting, maximum weight above, stack density, defects and unloading constraints |
+| `packingsolver3d.box` | `PackingSolver::box` | Plain 3D bin packing: bins, items, rotations, weight capacity, the full algorithm portfolio as keyword switches |
+| `packingsolver3d.boxstacks` | `PackingSolver::boxstacks` | Everything above plus stacks, stackability ids, nesting, maximum weight above, stack density, defects and unloading constraints |
 
 `rectangle`, `rectangleguillotine`, `onedimensional` and `irregular` are out of scope; use upstream directly for those.
 
@@ -37,7 +37,7 @@ PackingSolver covers several problem families. This package deliberately exposes
 pip install packingsolver3d
 ```
 
-Wheels are published for CPython 3.7 through 3.14 on Linux (x86_64, aarch64, ppc64le, s390x), macOS (x86_64, arm64) and Windows (AMD64). No compiler is needed for a wheel install. Installing from the sdist builds PackingSolver from the vendored sources and needs CMake >= 3.28, a C++14 compiler and network access for upstream's `FetchContent` dependencies.
+Wheels are published for CPython 3.7 through 3.14 on Linux (x86_64, aarch64, ppc64le, s390x), macOS (x86_64, arm64) and Windows (AMD64). No compiler is needed for a wheel install. Installing from the sdist compiles PackingSolver and the bridge from the vendored sources and needs CMake >= 3.28, a C++17 compiler and network access for upstream's `FetchContent` dependencies.
 
 ## Quick start
 
@@ -76,11 +76,11 @@ Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of
 
 ## Design
 
-* **Value in, value out.** Public types are frozen dataclasses. There is no live solver handle, mutable session or callback; each `solve` call is one subprocess.
-* **No shared memory.** The only things crossing the boundary are CSV/JSON files and an exit status, so C++ lifetimes never reach Python.
-* **Auditable.** `Result.run` records argv, return code, stdout, stderr, wall time and the SHA-256 of the executable used.
+* **Value in, value out.** Public types are frozen dataclasses. There is no live solver handle, mutable session or callback; each `solve` call builds the upstream instance, runs `optimize()` and copies the best solution back into Python values.
+* **No Python object owns C++ memory.** The bridge in `packingsolver3d/_core.cpp` takes plain dicts and returns plain dicts; no upstream object outlives the call.
+* **Auditable.** `Result.run` records the problem type, the exact options handed to upstream, upstream's captured log and the wall time.
 * **Honest statuses.** `OPTIMAL` requires a solver-reported bound for the requested objective and an achieved value meeting it; otherwise the result is `FEASIBLE`, however good it looks.
-* **Real limits.** `time_limit` is forwarded and backed by a wall-clock guard; `memory_limit` is forwarded and, on POSIX, enforced as a hard `RLIMIT_AS` on the child.
+* **In-process, by design.** `time_limit` and `memory_limit` are upstream's own checks. There is no process boundary: a crash inside upstream takes the interpreter with it, so callers who need isolation run `solve` in a worker process of their own.
 
 ## Development
 
@@ -88,7 +88,7 @@ Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of
 git clone --recursive https://github.com/HansBug/packingsolver3d.git
 cd packingsolver3d
 pip install -r requirements-test.txt -r requirements-build.txt
-make build      # compile the upstream executables into packingsolver3d/bin
+make build      # compile upstream + the pybind11 bridge into packingsolver3d/_core
 make unittest   # pytest with coverage
 make rst_auto   # regenerate API reference pages
 make docs       # sphinx html

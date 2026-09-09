@@ -9,10 +9,8 @@ packingsolver3d
 .. toctree::
     :maxdepth: 3
 
-    _csv
-    _runner
+    _encode
     _solve
-    bin/index
     box
     boxstacks
     config/index

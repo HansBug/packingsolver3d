@@ -1,9 +1,9 @@
-import json
-import os
-
 import pytest
 
-from packingsolver3d import BinType, Instance, ItemType, Objective, OptimizationMode, PackedBin, Status
+from packingsolver3d import (
+    BinType, Instance, InvalidInstanceError, ItemType, Objective, OptimizationMode, PackedBin, Rotation, SolverFailedError,
+    Status,
+)
 from packingsolver3d import _solve
 from packingsolver3d.result import Result
 
@@ -18,27 +18,6 @@ class TestNumber:
     ])
     def test_cases(self, value, expected):
         assert _solve._number(value) == expected
-
-
-@pytest.mark.unittest
-class TestReadOutput:
-    def test_missing(self, tmp_path):
-        assert _solve._read_output(str(tmp_path / 'none.json')) == {}
-
-    def test_invalid(self, tmp_path):
-        path = tmp_path / 'bad.json'
-        path.write_text('{not json')
-        assert _solve._read_output(str(path)) == {}
-
-    def test_no_output_block(self, tmp_path):
-        path = tmp_path / 'odd.json'
-        path.write_text(json.dumps({'Output': [1, 2]}))
-        assert _solve._read_output(str(path)) == {}
-
-    def test_valid(self, tmp_path):
-        path = tmp_path / 'ok.json'
-        path.write_text(json.dumps({'Output': {'Time': 1.5, 'Solution': {'NumberOfBins': 1}}}))
-        assert _solve._read_output(str(path)) == {'Time': 1.5, 'Solution': {'NumberOfBins': 1}}
 
 
 @pytest.mark.unittest
@@ -87,41 +66,71 @@ class TestClassify:
 @pytest.mark.unittest
 class TestCoreOptions:
     def test_always_pins_lp_solver(self):
-        assert _solve.core_options() == ['--verbosity-level', '0', '--linear-programming-solver', 'highs']
+        assert _solve.core_options() == {'verbosity_level': 0, 'linear_programming_solver': 'highs'}
 
     def test_all_options(self):
         options = _solve.core_options(
-            seed=7, verbosity_level=2, optimization_mode=OptimizationMode.NOT_ANYTIME,
-            linear_programming_solver='clp',
+            time_limit=3, memory_limit=512, verbosity_level=2,
+            optimization_mode=OptimizationMode.NOT_ANYTIME, linear_programming_solver='clp',
         )
-        assert options == [
-            '--verbosity-level', '2', '--linear-programming-solver', 'clp',
-            '--seed', '7', '--optimization-mode', 'not-anytime',
-        ]
+        assert options == {
+            'verbosity_level': 2, 'linear_programming_solver': 'clp',
+            'time_limit': 3.0, 'memory_limit': 512, 'optimization_mode': 'not-anytime',
+        }
 
 
 @pytest.mark.unittest
 class TestSolveInstance:
-    def test_keep_files(self, box_instance, tmp_path):
-        keep = tmp_path / 'kept'
-        result = _solve.solve_instance(
-            'box', box_instance, options=_solve.core_options(), time_limit=2.0, keep_files=str(keep),
-        )
+    def test_result_and_record(self, box_instance):
+        options = _solve.core_options(time_limit=2.0)
+        result = _solve.solve_instance('box', box_instance, options)
         assert isinstance(result, Result)
         assert result.status == Status.OPTIMAL
-        assert sorted(os.listdir(str(keep))) == [
-            'bins.csv', 'certificate.csv', 'items.csv', 'output.json', 'parameters.csv',
-        ]
         assert result.solve_time is not None and result.solve_time >= 0
         assert result.statistics['NumberOfItems'] == 10
         assert result.objective == Objective.BIN_PACKING
+        assert result.run.problem_type == 'box'
+        assert result.run.options == options
+        assert result.run.options is not options
+        assert result.run.stdout == '' and result.run.stderr == ''
+        assert result.run.wall_time > 0
 
-    def test_temporary_directory_removed(self, box_instance, tmp_path, monkeypatch):
-        monkeypatch.setattr(_solve.tempfile, 'tempdir', str(tmp_path))
-        _solve.solve_instance('box', box_instance, options=_solve.core_options(), time_limit=1.0)
-        assert os.listdir(str(tmp_path)) == []
+    def test_decode_bins_numbering(self):
+        raw = [
+            {'bin_type_id': 1, 'copies': 2, 'x': 5, 'y': 6, 'z': 7, 'stacks': [],
+             'placements': [{'item_type_id': 3, 'x': 0, 'y': 1, 'z': 2, 'lx': 1, 'ly': 1, 'lz': 1, 'rotation': 'ZYX'}]},
+            {'bin_type_id': 0, 'copies': 1, 'x': 5, 'y': 6, 'z': 7,
+             'stacks': [{'stack_id': 0, 'x': 0, 'y': 0, 'lx': 1, 'ly': 1, 'lz': 4}],
+             'placements': [{'item_type_id': 0, 'x': 0, 'y': 0, 'z': 0, 'lx': 1, 'ly': 1, 'lz': 4, 'rotation': 'XYZ',
+                             'stack_id': 0, 'group_id': 2}]},
+        ]
+        bins = _solve._decode_bins(raw)
+        assert [b.bin_id for b in bins] == [0, 1]
+        assert bins[0].placements[0].bin_id == 0
+        assert bins[0].placements[0].rotation == Rotation.ZYX
+        assert bins[0].placements[0].stack_id is None
+        assert bins[1].stacks[0].bin_id == 1
+        assert bins[1].placements[0].group_id == 2
 
-    def test_no_solution_when_nothing_is_mandatory(self, tmp_path):
+    def test_upstream_rejection_is_typed(self, box_instance, monkeypatch):
+        def reject(payload, options):
+            raise ValueError('InstanceBuilder::build: item type 0 has copies_min > copies')
+        monkeypatch.setitem(_solve._SOLVERS, 'box', reject)
+        with pytest.raises(InvalidInstanceError) as exc_info:
+            _solve.solve_instance('box', box_instance, _solve.core_options())
+        assert 'copies_min' in str(exc_info.value)
+
+    def test_upstream_failure_is_typed(self, box_instance, monkeypatch):
+        def fail(payload, options):
+            raise RuntimeError('ERROR, no linear programming solver found')
+        monkeypatch.setitem(_solve._SOLVERS, 'box', fail)
+        with pytest.raises(SolverFailedError) as exc_info:
+            _solve.solve_instance('box', box_instance, _solve.core_options())
+        assert 'no linear programming solver' in str(exc_info.value)
+        assert exc_info.value.run.problem_type == 'box'
+        assert exc_info.value.run.options == _solve.core_options()
+
+    def test_no_solution_when_nothing_is_mandatory(self):
         # copies_min=0 on every item under bin packing: zero bins is the optimum,
         # and upstream reports it as an empty solution.
         instance = Instance(
@@ -129,7 +138,7 @@ class TestSolveInstance:
             item_types=[ItemType(x=20, y=30, z=40, copies=6, copies_min=0)],
             objective=Objective.BIN_PACKING,
         )
-        result = _solve.solve_instance('box', instance, options=_solve.core_options(), time_limit=1.0)
+        result = _solve.solve_instance('box', instance, _solve.core_options(time_limit=1.0))
         assert result.status == Status.NO_SOLUTION
         assert result.number_of_bins == 0
         assert result.placements == ()

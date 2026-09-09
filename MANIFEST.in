@@ -3,20 +3,15 @@ include LICENSE
 include LICENSE-packingsolver
 include NOTICE.md
 include MANIFEST.in
+include CMakeLists.txt
 include pytest.ini
 include requirements.txt
 include requirements-*.txt
-recursive-include packingsolver3d *.py
-recursive-include tools *.py
-recursive-include cibw *.sh
-recursive-include test *.py *.csv *.json
-# Upstream sources travel with the sdist so a source install can build them;
-# the executables themselves are platform build products and stay out.
+recursive-include packingsolver3d *.py *.cpp
+recursive-include test *.py
+# Upstream sources travel with the sdist so a source install can build them.
 graft upstream/packingsolver
 prune upstream/packingsolver/data
 prune upstream/packingsolver/test
 prune upstream/packingsolver/.git
-exclude packingsolver3d/bin/packingsolver_box
-exclude packingsolver3d/bin/packingsolver_boxstacks
-exclude packingsolver3d/bin/*.exe
-global-exclude __pycache__ *.py[cod]
+global-exclude __pycache__ *.py[cod] *.so *.pyd *.dylib

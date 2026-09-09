@@ -4,11 +4,12 @@ Overview:
     <https://github.com/fontanf/packingsolver>`_.
 
     This distribution is unofficial and covers only the two three-dimensional
-    problem types, ``box`` and ``boxstacks``.  The native executables are
-    precompiled into the wheel, so nothing has to be built at install time and
-    no C++ lifetime ever reaches Python: an instance is encoded to CSV, a
-    short-lived process solves it, and the answer comes back as plain value
-    objects.
+    problem types, ``box`` and ``boxstacks``.  The upstream solvers are
+    compiled into the extension module :mod:`packingsolver3d._core` together
+    with a thin pybind11 bridge, so nothing has to be built at install time and
+    no C++ lifetime ever reaches Python: an instance goes in as plain values,
+    ``optimize()`` runs in-process, and the best solution comes back copied
+    into plain value objects.
 
     Example::
 
@@ -24,10 +25,9 @@ Overview:
 """
 
 from . import box, boxstacks
-from ._runner import available_binaries, binary_path
 from .config.meta import __VERSION__ as __version__
-from .errors import BinaryNotFoundError, InvalidInstanceError, PackingSolverError, \
-    SolverFailedError, StackSemanticsError, SolverTimeoutError, UnsupportedFeatureError
+from .errors import InvalidInstanceError, PackingSolverError, SolverFailedError, StackSemanticsError, \
+    UnsupportedFeatureError
 from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, \
     OptimizationMode, Rotation, UnloadingConstraint
 from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
@@ -35,7 +35,6 @@ from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
 __all__ = [
     'ALL_ROTATIONS',
     'BinType',
-    'BinaryNotFoundError',
     'Defect',
     'Instance',
     'InvalidInstanceError',
@@ -49,14 +48,11 @@ __all__ = [
     'Rotation',
     'RunRecord',
     'SolverFailedError',
-    'SolverTimeoutError',
     'Stack',
     'StackSemanticsError',
     'Status',
     'UnloadingConstraint',
     'UnsupportedFeatureError',
-    'available_binaries',
-    'binary_path',
     'box',
     'boxstacks',
 ]

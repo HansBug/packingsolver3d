@@ -4,16 +4,16 @@ Welcome to packingsolver3d
 Overview
 --------
 
-**packingsolver3d** is an unofficial Python distribution of the two three-dimensional solvers of `PackingSolver <https://github.com/fontanf/packingsolver>`_, ``box`` and ``boxstacks``. Every wheel ships the two upstream executables precompiled, and the Python layer talks to them through files and a subprocess boundary only, so no Python object ever owns solver memory.
+**packingsolver3d** is an unofficial Python distribution of the two three-dimensional solvers of `PackingSolver <https://github.com/fontanf/packingsolver>`_, ``box`` and ``boxstacks``. The upstream C++ is compiled together with a thin pybind11 bridge into one extension module; every solve runs in-process and copies its result back into plain Python values, so no Python object ever owns solver memory.
 
 Key Features
 ~~~~~~~~~~~~~
 
 * **Value-in / value-out API** built on frozen dataclasses: :class:`~packingsolver3d.model.Instance` goes in, :class:`~packingsolver3d.result.Result` comes out
 * **Two solvers, one model**: :mod:`packingsolver3d.box` for plain 3D packing, :mod:`packingsolver3d.boxstacks` for stacking, unloading and weight rules
-* **Auditable runs**: every result carries the argv, exit code, streams, wall time and executable digest that produced it
+* **Auditable runs**: every result carries the exact options handed to upstream, upstream's captured log and the wall time
 * **Honest statuses**: a solver-reported bound is never relabelled as a proven optimum; ``OPTIMAL`` means the achieved value met the reported bound
-* **Real resource gates**: ``time_limit`` plus a wall-clock guard, ``memory_limit`` enforced as a POSIX address-space rlimit
+* **Upstream's own limits**: ``time_limit`` and ``memory_limit`` are forwarded to the solver's timer and memory check
 * **Prebuilt wheels** for Linux, macOS and Windows on CPython 3.7 through 3.14
 
 Quick Start
@@ -41,7 +41,7 @@ Architecture
 * **Package root** (``packingsolver3d``): re-exports the model, result and error types plus the two solver modules
 * **Solver modules** (``packingsolver3d.box``, ``packingsolver3d.boxstacks``): one ``solve`` function each, mirroring the upstream command line options
 * **Metadata layer** (``packingsolver3d.config``): package version, pinned upstream commit and build options
-* **Executables** (``packingsolver3d.bin``): the precompiled upstream binaries a wheel ships
+* **Native bridge** (``packingsolver3d._core``): upstream ``box`` and ``boxstacks`` plus the pybind11 glue, one extension module
 
 Upstream and Source
 ~~~~~~~~~~~~~~~~~~~

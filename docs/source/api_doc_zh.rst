@@ -6,10 +6,8 @@ API 文档
     :caption: API 文档
     :hidden:
 
-    api_doc/_csv
-    api_doc/_runner
+    api_doc/_encode
     api_doc/_solve
-    api_doc/bin/index
     api_doc/box
     api_doc/boxstacks
     api_doc/config/index
@@ -17,10 +15,8 @@ API 文档
     api_doc/model
     api_doc/result
 
-* :doc:`api_doc/_csv`
-* :doc:`api_doc/_runner`
+* :doc:`api_doc/_encode`
 * :doc:`api_doc/_solve`
-* :doc:`api_doc/bin/index`
 * :doc:`api_doc/box`
 * :doc:`api_doc/boxstacks`
 * :doc:`api_doc/config/index`

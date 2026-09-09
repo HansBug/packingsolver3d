@@ -133,25 +133,24 @@ class PackedBin:
 @dataclass(frozen=True)
 class RunRecord:
     """
-    Exactly what was executed, so a result can be reproduced or blamed.
+    Everything needed to reproduce one solver call.
 
-    :param argv: The full command line, executable path included.
-    :param returncode: Process exit status.
-    :param stdout: Captured standard output.
-    :param stderr: Captured standard error.
-    :param wall_time: Wall clock seconds spent in the process.
-    :param binary_sha256: Hex digest of the executable that produced the
-        result, which pins the answer to a specific build.
-    :param timed_out: Whether the wall clock guard had to kill the process.
+    The solver runs in-process, so there is no argv or exit code; the options
+    mapping is exactly what was handed to the native module, and the two
+    streams are upstream's own log, captured for the duration of the call.
+
+    :param problem_type: ``'box'`` or ``'boxstacks'``.
+    :param options: The options passed to the native module.
+    :param stdout: What upstream wrote to standard output during the solve.
+    :param stderr: What upstream wrote to standard error during the solve.
+    :param wall_time: Seconds the call took, measured from Python.
     """
 
-    argv: Tuple[str, ...]
-    returncode: int
+    problem_type: str
+    options: Dict[str, Any]
     stdout: str
     stderr: str
     wall_time: float
-    binary_sha256: str
-    timed_out: bool = False
 
 
 @dataclass(frozen=True)

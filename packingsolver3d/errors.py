@@ -8,11 +8,9 @@ Overview:
 
 __all__ = [
     'PackingSolverError',
-    'BinaryNotFoundError',
     'InvalidInstanceError',
     'UnsupportedFeatureError',
     'SolverFailedError',
-    'SolverTimeoutError',
     'StackSemanticsError',
 ]
 
@@ -20,16 +18,6 @@ __all__ = [
 class PackingSolverError(Exception):
     """
     Base class of every error raised by :mod:`packingsolver3d`.
-    """
-
-
-class BinaryNotFoundError(PackingSolverError):
-    """
-    Raised when the precompiled executable for a problem type is missing.
-
-    A wheel always ships the executables, so this normally means the package
-    was installed from an sdist without building the upstream sources, or the
-    ``bin`` directory was stripped after installation.
     """
 
 
@@ -74,13 +62,3 @@ class SolverFailedError(PackingSolverError, RuntimeError):
     def __init__(self, message, run=None):
         PackingSolverError.__init__(self, message)
         self.run = run
-
-
-class SolverTimeoutError(SolverFailedError):
-    """
-    Raised when the native executable outruns its wall clock guard.
-
-    PackingSolver honours ``--time-limit`` itself and normally exits cleanly
-    with the best solution found so far; this error means it blew past even the
-    grace period on top of that limit and had to be killed.
-    """

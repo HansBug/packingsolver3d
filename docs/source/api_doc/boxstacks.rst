@@ -12,6 +12,12 @@ packingsolver3d.boxstacks
 .. autodata:: __all__
 
 
+validate
+-----------------------------------------------------
+
+.. autofunction:: validate
+
+
 solve
 -----------------------------------------------------
 

@@ -22,7 +22,7 @@ class TestSolve:
             members = [p for p in result.placements if p.stack_id == stack.stack_id]
             assert 1 <= len(members) <= 3
             assert all((p.x, p.y) == (stack.x, stack.y) for p in members)
-        assert result.run.argv[0].endswith(('packingsolver_boxstacks', 'packingsolver_boxstacks.exe'))
+        assert result.run.problem_type == 'boxstacks'
 
     def test_plain_instance_needs_distinct_footprints(self, box_instance):
         # Both item types default to stackability_id 0 and differ in footprint:
@@ -88,9 +88,8 @@ class TestSolve:
         result = boxstacks.solve(
             stack_instance, time_limit=1.0, unloading_constraint=UnloadingConstraint.ONLY_X_MOVEMENTS,
         )
-        argv = result.run.argv
-        assert ('--unloading-constraint', 'only-x-movements') in zip(argv, argv[1:])
         assert result.status in (Status.OPTIMAL, Status.FEASIBLE)
+        assert len(result.placements) == 10
 
     def test_defects(self, defect_instance):
         # Observed at upstream a7e53303: defects are read and echoed in the
@@ -98,7 +97,6 @@ class TestSolve:
         # full-width defects alike).  Only acceptance is asserted here.
         result = boxstacks.solve(defect_instance, time_limit=2.0)
         assert result.status in (Status.OPTIMAL, Status.FEASIBLE)
-        assert '--defects' in result.run.argv
         assert len(result.placements) == 10
 
     def test_weight_capacity_forces_more_bins(self):

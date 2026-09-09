@@ -2,6 +2,9 @@
 
 Status: draft, pre-implementation. Written 2026-09-09. This document is the agreed scope, naming, architecture and milestone plan; it is not a record of shipped behavior.
 
+
+> **Amendment (2026-09-09).** The delivery model changed from "bundle the upstream executables and drive them through a subprocess" to "compile upstream together with a pybind11 bridge into one extension module, `packingsolver3d._core`". The value-in / value-out surface, the frozen models, the status rules and the submodule boundary are unchanged; what changed is that every solve now runs in-process, `time_limit` / `memory_limit` are upstream's own checks rather than a wall-clock guard and an `RLIMIT_AS`, and a crash inside upstream is no longer contained by a process boundary. Sections below that describe executables, CSV files, `_runner.py` or `RunRecord.argv` are historical; the tree in section 4 and `CLAUDE.md` are authoritative.
+
 ## 1. Scope decision: box **and** boxstacks
 
 The candidate scope reduction "boxstacks only, drop box" is rejected. The measured evidence in the companion research repository (`~/packing-software-study`) points the other way: `box` is the mandatory engine and `boxstacks` is the conditional sidecar.
@@ -99,7 +102,8 @@ Open gate, to be resolved in M0 before the build configuration is frozen: whethe
 |- LICENSE-packingsolver             # verbatim upstream MIT
 |- NOTICE.md                         # attribution, pinned commit, build options
 |- pyproject.toml                    # build-system + [tool.cibuildwheel]
-|- setup.py                          # setuptools bridge: build upstream via CMake, stage binaries
+|- setup.py                          # CMakeExtension: builds upstream + the pybind11 bridge into _core
+|- CMakeLists.txt                    # add_subdirectory(upstream/packingsolver) + pybind11_add_module(_core)
 |- Makefile                          # unified local build / test / package / docs entrypoint
 |- pytest.ini
 |- requirements.txt                  # runtime (aim: stdlib only)
@@ -110,28 +114,18 @@ Open gate, to be resolved in M0 before the build configuration is frozen: whethe
 |- .readthedocs.yaml
 |- .gitmodules
 |- upstream/packingsolver/           # git submodule -> fontanf/packingsolver, pinned; NEVER patched
-|- cibw/
-|  |- linux_before_all.sh            # one native build per job, reused by every Python wheel
-|  |- macos_before_all.sh
-|  `- windows_before_all.sh
-|- tools/
-|  |- __init__.py
-|  `- build_upstream.py              # CMake configure, build, and stage the two executables
 |- mds/                              # internal design and plan docs (this file)
 |- packingsolver3d/
 |  |- __init__.py                    # public re-exports
 |  |- config/
 |  |  |- __init__.py
 |  |  `- meta.py                     # __VERSION__, __UPSTREAM_COMMIT__, __LP_SOLVER__
-|  |- bin/
-|  |  |- __init__.py                 # staged executables live here
-|  |  `- .gitignore                  # the executables are build products, never committed
+|  |- _core.cpp                      # pybind11 bridge: InstanceBuilder -> optimize() -> plain values
 |  |- model.py                       # frozen dataclasses shared by both problem types
 |  |- result.py                      # Status, Placement, Stack, PackedBin, RunRecord, Result
 |  |- errors.py                      # PackingSolverError, InvalidInstanceError, UnsupportedFeatureError, ...
-|  |- _csv.py                        # instance writer + certificate reader
-|  |- _runner.py                     # subprocess runner: argv, rlimit, wall clock, RunRecord
-|  |- _solve.py                      # shared pipeline: encode, run, decode, classify
+|  |- _encode.py                     # Instance -> plain payload for the bridge
+|  |- _solve.py                      # shared pipeline: encode, call _core, decode, classify
 |  |- box.py                         # validate() + solve() for packingsolver_box
 |  `- boxstacks.py                   # solve() for packingsolver_boxstacks
 |- test/
@@ -140,11 +134,11 @@ Open gate, to be resolved in M0 before the build configuration is frozen: whethe
 |  |- config/test_meta.py
 |  |- test_model.py
 |  |- test_csv.py
-|  |- test_runner.py
+|  |- test_encode.py
+|  |- test_core.py
 |  |- test_solve.py
 |  |- test_box.py
 |  |- test_boxstacks.py
-|  `- testfile/                      # golden certificates from the smoke runs
 |- docs/
 |  |- Makefile
 |  `- source/                        # sphinx; api_doc/, index_en.rst, index_zh.rst

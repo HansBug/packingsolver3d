@@ -48,10 +48,10 @@ class TestSolve:
         assert len(result.placements) == 10
         assert all(p.stack_id is None for p in result.placements)
         assert all(p.rotation == Rotation.XYZ for p in result.placements)
-        assert result.run.returncode == 0
-        assert result.run.argv[-2:] == ('--linear-programming-solver', 'highs')
-        assert '--time-limit' in result.run.argv
-        assert len(result.run.binary_sha256) == 64
+        assert result.run.problem_type == 'box'
+        assert result.run.options['linear_programming_solver'] == 'highs'
+        assert result.run.options['time_limit'] == 2.0
+        assert result.run.stdout == ''
 
     def test_knapsack(self, box_instance):
         instance = Instance(
@@ -86,24 +86,32 @@ class TestSolve:
 
     def test_switches_and_options(self, box_instance):
         result = box.solve(
-            box_instance, time_limit=1.0, seed=3, verbosity_level=1,
+            box_instance, time_limit=1.0, memory_limit=2048, verbosity_level=1,
             optimization_mode=OptimizationMode.NOT_ANYTIME,
             use_tree_search=True, use_tree_search_maximal_spaces=False,
             use_sequential_single_knapsack=False, use_sequential_value_correction=False,
             use_column_generation=False, use_dichotomic_search=False, use_dual_feasible_functions=True,
         )
-        argv = result.run.argv
-        pairs = list(zip(argv, argv[1:]))
-        for expected in [
-            ('--seed', '3'), ('--verbosity-level', '1'), ('--optimization-mode', 'not-anytime'),
-            ('--use-tree-search', '1'), ('--use-tree-search-maximal-spaces', '0'),
-            ('--use-sequential-single-knapsack', '0'), ('--use-sequential-value-correction', '0'),
-            ('--use-column-generation', '0'), ('--use-dichotomic-search', '0'),
-            ('--use-dual-feasible-functions', '1'),
-        ]:
-            assert expected in pairs
-        assert result.run.stdout, 'verbosity 1 must leave a log on stdout'
+        assert result.run.options == {
+            'verbosity_level': 1, 'linear_programming_solver': 'highs',
+            'time_limit': 1.0, 'memory_limit': 2048, 'optimization_mode': 'not-anytime',
+            'use_tree_search': True, 'use_tree_search_maximal_spaces': False,
+            'use_sequential_single_knapsack': False, 'use_sequential_value_correction': False,
+            'use_column_generation': False, 'use_dichotomic_search': False,
+            'use_dual_feasible_functions': True,
+        }
+        assert result.run.stdout, 'verbosity 1 must leave a log'
         assert result.status == Status.OPTIMAL
+
+    def test_unset_switches_are_omitted(self, box_instance):
+        result = box.solve(box_instance, time_limit=1.0)
+        assert not any(key.startswith('use_') for key in result.run.options)
+
+    def test_bad_lp_solver_token(self, box_instance):
+        from packingsolver3d import InvalidInstanceError
+        with pytest.raises(InvalidInstanceError) as exc_info:
+            box.solve(box_instance, time_limit=1.0, linear_programming_solver='nope')
+        assert 'unknown linear programming solver' in str(exc_info.value)
 
     def test_to_json(self, box_instance):
         document = json.loads(box.solve(box_instance, time_limit=1.0).to_json())

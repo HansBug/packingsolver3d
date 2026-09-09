@@ -6,8 +6,8 @@ Overview:
     3D benchmark upstream reports.  Items are placed independently anywhere in
     a bin, subject only to the bin's own extents and weight capacity.
 
-    Unlike :mod:`packingsolver3d.boxstacks`, the ``box`` executable exposes its
-    algorithm portfolio on the command line, so :func:`solve` can turn
+    Unlike :mod:`packingsolver3d.boxstacks`, the ``box`` solver exposes its
+    algorithm portfolio through its parameters, so :func:`solve` can turn
     individual strategies on and off.
 """
 
@@ -25,10 +25,9 @@ def validate(instance: Instance) -> None:
     """
     Refuse instances whose constraints the ``box`` solver would drop in silence.
 
-    The upstream CSV reader matches known column labels and ignores everything
-    else without a diagnostic, so an instance carrying stacking rules, defects
-    or an unloading constraint would be solved as if those constraints did not
-    exist -- and the resulting packing would look perfectly valid.
+    The ``box`` model has no stacking rules, defects or unloading constraint,
+    so an instance carrying them would be solved as if those constraints did
+    not exist -- and the resulting packing would look perfectly valid.
 
     :param instance: The instance to check.
     :raise UnsupportedFeatureError: When the instance needs
@@ -60,7 +59,7 @@ def validate(instance: Instance) -> None:
         reasons.append('bin stacking fields')
 
     raise UnsupportedFeatureError(
-        'the box solver ignores {reasons}; use packingsolver3d.boxstacks.solve '
+        'the box solver has no notion of {reasons}; use packingsolver3d.boxstacks.solve '
         'instead, which honours them'.format(reasons=', '.join(reasons))
     )
 
@@ -69,7 +68,6 @@ def solve(
         instance: Instance,
         time_limit: Optional[float] = None,
         memory_limit: Optional[int] = None,
-        seed: Optional[int] = None,
         verbosity_level: int = 0,
         optimization_mode: Optional[OptimizationMode] = None,
         use_tree_search: Optional[bool] = None,
@@ -80,22 +78,22 @@ def solve(
         use_dichotomic_search: Optional[bool] = None,
         use_dual_feasible_functions: Optional[bool] = None,
         linear_programming_solver: Optional[str] = None,
-        grace_seconds: Optional[float] = None,
-        keep_files: Optional[str] = None,
 ) -> Result:
     """
     Solve a 3D bin packing instance with the ``box`` solver.
+
+    The solver runs in-process; a crash inside upstream would take the
+    interpreter with it.  Callers that need isolation run this in a worker
+    process of their own.
 
     :param instance: The instance to solve.
     :param time_limit: Seconds of search.  ``None`` lets the solver run to its
         own completion, which on a non-trivial instance means indefinitely --
         pass a limit for anything but tiny inputs.
-    :param memory_limit: Mebibytes the solver may use.  Enforced twice: as
-        ``--memory-limit``, which the solver checks at its own checkpoints, and
-        on POSIX as a hard address space rlimit on the child process.
-    :param seed: Forwarded as ``--seed``.  Upstream ignores it today.
-    :param verbosity_level: Forwarded as ``--verbosity-level``; the log ends up
-        in :attr:`~packingsolver3d.result.RunRecord.stdout`.
+    :param memory_limit: Mebibytes the solver may use.  Checked by upstream at
+        its own checkpoints; there is no hard limit.
+    :param verbosity_level: Upstream's ``verbosity_level``; the log ends up in
+        :attr:`~packingsolver3d.result.RunRecord.stdout`.
     :param optimization_mode: Anytime versus fixed-schedule search, see
         :class:`~packingsolver3d.model.OptimizationMode`.
     :param use_tree_search: Enable or disable the tree search algorithm.
@@ -110,17 +108,13 @@ def solve(
     :param use_dual_feasible_functions: Force the dual feasible function bound
         even on instances larger than the built-in threshold.
     :param linear_programming_solver: Override the linear programming backend
-        name.  Only useful against a custom build; the bundled executables ship
-        HiGHS only.
-    :param grace_seconds: Seconds allowed past ``time_limit`` before the child
-        process is killed.
-    :param keep_files: Directory to preserve the generated instance and output
-        files in, for reproducing a run by hand.
+        name.  Only useful against a custom build; the bundled module has HiGHS
+        only.
     :return: The :class:`~packingsolver3d.result.Result`.
     :raise UnsupportedFeatureError: When the instance needs stacking support.
-    :raise InvalidInstanceError: When the instance is structurally invalid.
-    :raise SolverFailedError: When the solver exited non-zero.
-    :raise SolverTimeoutError: When the solver outran its wall clock guard.
+    :raise InvalidInstanceError: When the instance is structurally invalid, or
+        upstream's ``InstanceBuilder`` rejects it.
+    :raise SolverFailedError: When upstream threw during the solve.
 
     Example::
 
@@ -137,30 +131,23 @@ def solve(
     validate(instance)
 
     options = core_options(
-        seed=seed,
+        time_limit=time_limit,
+        memory_limit=memory_limit,
         verbosity_level=verbosity_level,
         optimization_mode=optimization_mode,
         linear_programming_solver=linear_programming_solver,
     )
     switches = (
-        ('--use-tree-search', use_tree_search),
-        ('--use-tree-search-maximal-spaces', use_tree_search_maximal_spaces),
-        ('--use-sequential-single-knapsack', use_sequential_single_knapsack),
-        ('--use-sequential-value-correction', use_sequential_value_correction),
-        ('--use-column-generation', use_column_generation),
-        ('--use-dichotomic-search', use_dichotomic_search),
-        ('--use-dual-feasible-functions', use_dual_feasible_functions),
+        ('use_tree_search', use_tree_search),
+        ('use_tree_search_maximal_spaces', use_tree_search_maximal_spaces),
+        ('use_sequential_single_knapsack', use_sequential_single_knapsack),
+        ('use_sequential_value_correction', use_sequential_value_correction),
+        ('use_column_generation', use_column_generation),
+        ('use_dichotomic_search', use_dichotomic_search),
+        ('use_dual_feasible_functions', use_dual_feasible_functions),
     )
     for name, value in switches:
         if value is not None:
-            options.extend([name, '1' if value else '0'])
+            options[name] = bool(value)
 
-    return solve_instance(
-        'box',
-        instance,
-        options=options,
-        time_limit=time_limit,
-        memory_limit=memory_limit,
-        grace_seconds=grace_seconds,
-        keep_files=keep_files,
-    )
+    return solve_instance('box', instance, options)

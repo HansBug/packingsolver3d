@@ -3,25 +3,29 @@ Overview:
     Shared solve pipeline behind :mod:`packingsolver3d.box` and
     :mod:`packingsolver3d.boxstacks`.
 
-    Both solvers take the same instance files, the same core options and the
-    same output files, so the pipeline -- encode, invoke, decode -- lives here
-    once.  The problem-specific modules only contribute their extra command
-    line options and their validation rules.
+    Both solvers take the same instance payload, the same core options and
+    return the same shape of result, so the pipeline -- encode, call the
+    native module, decode -- lives here once.  The problem-specific modules
+    only contribute their extra options and their validation rules.
 """
 
 import json
 import math
-import os
-import shutil
-import tempfile
+import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ._csv import parse_certificate, write_instance
-from ._runner import run_solver
+try:
+    from . import _core
+except ImportError as err:  # the extension is missing for this interpreter, not a circular import
+    raise ImportError(
+        'packingsolver3d._core is not built for this interpreter ({err}); install a wheel or run '
+        '"make build" (needs CMake >= 3.28 and a C++17 compiler)'.format(err=err)
+    )
+from ._encode import instance_payload
 from .config.meta import __LP_SOLVER__
-from .errors import SolverFailedError
-from .model import Instance, Objective, OptimizationMode
-from .result import PackedBin, Result, RunRecord, Status
+from .errors import InvalidInstanceError, SolverFailedError
+from .model import Instance, Objective, OptimizationMode, Rotation, UnloadingConstraint
+from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
 
 __all__ = ['solve_instance']
 
@@ -40,23 +44,10 @@ _OBJECTIVE_METRICS = {
     Objective.OPEN_DIMENSION_Z: ('ZMax', 'OpenDimensionZBound', -1),
 }
 
-
-def _read_output(path: str) -> Dict[str, Any]:
-    """
-    Load the solver's JSON output, tolerating the case where it wrote none.
-
-    :param path: Path of the ``--output`` file.
-    :return: The ``Output`` object of the document, or an empty mapping.
-    """
-    if not os.path.isfile(path):
-        return {}
-    try:
-        with open(path, 'r') as f:
-            document = json.load(f)
-    except ValueError:
-        return {}
-    output = document.get('Output')
-    return output if isinstance(output, dict) else {}
+_SOLVERS = {
+    'box': _core.box_solve,
+    'boxstacks': _core.boxstacks_solve,
+}
 
 
 def _number(value) -> Optional[float]:
@@ -90,8 +81,8 @@ def _classify(
     incumbent from being mistaken for a proven optimum.
 
     :param objective: The objective the instance was solved for.
-    :param output: The ``Output`` block of the solver's JSON output.
-    :param bins: The parsed certificate.
+    :param output: The ``Output`` document of the solver.
+    :param bins: The decoded bins.
     :return: ``(status, value, bound)``.
     """
     statistics = output.get('Solution') or {}
@@ -121,96 +112,118 @@ def _classify(
 
 
 def core_options(
-        seed: Optional[int] = None,
+        time_limit: Optional[float] = None,
+        memory_limit: Optional[int] = None,
         verbosity_level: int = 0,
         optimization_mode: Optional[OptimizationMode] = None,
         linear_programming_solver: Optional[str] = None,
-) -> List[str]:
+) -> Dict[str, Any]:
     """
-    Render the command line options both solvers accept.
+    Render the options both solvers accept.
 
-    ``--linear-programming-solver`` is always passed.  Upstream's default
-    solver name is ``CLP``, the bundled executables are built with
-    ``PACKINGSOLVER_USE_CLP=OFF``, and the factory that resolves the name is a
-    chain of ``#if <BACKEND>_FOUND`` guards ending in a bare ``throw``.  Left
-    to the default, every column generation path dies with "no linear
-    programming solver found" -- which small instances hide, because they
-    finish in tree search before column generation is ever reached.
+    ``linear_programming_solver`` is always set.  Upstream's default solver
+    name is ``CLP``, the bundled build has ``PACKINGSOLVER_USE_CLP=OFF``, and
+    the factory that resolves the name is a chain of ``#if <BACKEND>_FOUND``
+    guards ending in a bare ``throw``.  Left to the default, every column
+    generation path dies with "no linear programming solver found" -- which
+    small instances hide, because they finish in tree search before column
+    generation is ever reached.
 
-    :param seed: Value for ``--seed``.  Upstream currently ignores it; it is
-        forwarded so runs stay reproducible if that changes.
-    :param verbosity_level: Value for ``--verbosity-level``.
-    :param optimization_mode: Value for ``--optimization-mode``.
-    :param linear_programming_solver: Override for
-        ``--linear-programming-solver``.  Only useful against a custom build.
+    :param time_limit: Seconds for upstream's timer.
+    :param memory_limit: Mebibytes for upstream's own memory check.
+    :param verbosity_level: Upstream's ``verbosity_level``; the log is captured
+        into :attr:`~packingsolver3d.result.RunRecord.stdout`.
+    :param optimization_mode: Anytime versus fixed-schedule search.
+    :param linear_programming_solver: Override for the LP backend name.  Only
+        useful against a custom build.
     :return: The rendered options.
     """
-    options = [
-        '--verbosity-level', str(int(verbosity_level)),
-        '--linear-programming-solver', linear_programming_solver or __LP_SOLVER__,
-    ]
-    if seed is not None:
-        options.extend(['--seed', str(int(seed))])
+    options = {
+        'verbosity_level': int(verbosity_level),
+        'linear_programming_solver': linear_programming_solver or __LP_SOLVER__,
+    }  # type: Dict[str, Any]
+    if time_limit is not None:
+        options['time_limit'] = float(time_limit)
+    if memory_limit is not None:
+        options['memory_limit'] = int(memory_limit)
     if optimization_mode is not None:
-        options.extend(['--optimization-mode', optimization_mode.value])
+        options['optimization_mode'] = optimization_mode.value
     return options
+
+
+def _decode_bins(raw_bins: Sequence[Dict[str, Any]]) -> Tuple[PackedBin, ...]:
+    """
+    Turn the native module's plain bins into result dataclasses.
+
+    :param raw_bins: ``bins`` as returned by the native module.
+    :return: The decoded bins, numbered in order.
+    """
+    bins = []  # type: List[PackedBin]
+    for bin_id, raw in enumerate(raw_bins):
+        stacks = tuple(
+            Stack(stack_id=s['stack_id'], bin_id=bin_id, x=s['x'], y=s['y'], lx=s['lx'], ly=s['ly'], lz=s['lz'])
+            for s in raw['stacks']
+        )
+        placements = tuple(
+            Placement(
+                item_type_id=p['item_type_id'], bin_id=bin_id,
+                x=p['x'], y=p['y'], z=p['z'], lx=p['lx'], ly=p['ly'], lz=p['lz'],
+                rotation=Rotation(p['rotation']),
+                stack_id=p.get('stack_id'), group_id=p.get('group_id'),
+            )
+            for p in raw['placements']
+        )
+        bins.append(PackedBin(
+            bin_id=bin_id, bin_type_id=raw['bin_type_id'], copies=raw['copies'],
+            x=raw['x'], y=raw['y'], z=raw['z'], placements=placements, stacks=stacks,
+        ))
+    return tuple(bins)
 
 
 def solve_instance(
         problem_type: str,
         instance: Instance,
-        options: Sequence[str],
-        time_limit: Optional[float] = None,
-        memory_limit: Optional[int] = None,
-        grace_seconds: Optional[float] = None,
-        keep_files: Optional[str] = None,
+        options: Dict[str, Any],
+        unloading_constraint: Optional[UnloadingConstraint] = None,
 ) -> Result:
     """
-    Encode an instance, run a native solver and decode what came back.
+    Encode an instance, run the native solver in-process and decode the result.
 
     :param problem_type: ``'box'`` or ``'boxstacks'``.
     :param instance: The instance to solve, already validated by the caller.
-    :param options: Fully rendered command line options.
-    :param time_limit: Seconds for ``--time-limit``.
-    :param memory_limit: Mebibytes for ``--memory-limit`` and for the POSIX
-        address space limit.
-    :param grace_seconds: Seconds allowed past ``time_limit`` before the child
-        is killed.  ``None`` uses
-        :data:`packingsolver3d._runner.DEFAULT_GRACE_SECONDS`.
-    :param keep_files: Directory to copy the instance and output files into
-        before the temporary directory is removed.  Useful when a run needs to
-        be reproduced by hand.
+    :param options: Fully rendered options, see :func:`core_options`.
+    :param unloading_constraint: Override for the instance's own setting.
     :return: The decoded :class:`~packingsolver3d.result.Result`.
-    :raise SolverFailedError: When the solver exited non-zero.
-    :raise SolverTimeoutError: When the solver outran its wall clock guard.
+    :raise InvalidInstanceError: When upstream's ``InstanceBuilder`` rejects
+        the instance; the message is upstream's own.
+    :raise SolverFailedError: When upstream threw during the solve; the message
+        is upstream's own and the partial :class:`RunRecord` is attached.
     """
-    from ._runner import DEFAULT_GRACE_SECONDS
-
-    if grace_seconds is None:
-        grace_seconds = DEFAULT_GRACE_SECONDS
-
-    directory = tempfile.mkdtemp(prefix='packingsolver3d-')
+    payload = instance_payload(instance, unloading_constraint)
+    started = time.time()
     try:
-        paths = write_instance(instance, directory)
-        paths['output'] = os.path.join(directory, 'output.json')
-        paths['certificate'] = os.path.join(directory, 'certificate.csv')
-
-        record, _ = run_solver(
-            problem_type,
-            paths,
-            options=options,
-            time_limit=time_limit,
-            memory_limit=memory_limit,
-            grace_seconds=grace_seconds,
+        raw = _SOLVERS[problem_type](payload, options)
+    except ValueError as err:
+        # std::invalid_argument from InstanceBuilder: the input is at fault.
+        raise InvalidInstanceError('{problem_type}: {err}'.format(problem_type=problem_type, err=err))
+    except RuntimeError as err:
+        # std::runtime_error (or any other std::exception) from the solver itself.
+        record = RunRecord(problem_type=problem_type, options=dict(options), stdout='', stderr='',
+                           wall_time=time.time() - started)
+        raise SolverFailedError(
+            '{problem_type} solver failed: {err}'.format(problem_type=problem_type, err=err), run=record,
         )
+    wall_time = time.time() - started
 
-        output = _read_output(paths['output'])
-        bins = parse_certificate(paths['certificate'])
-
-        if keep_files is not None:
-            _copy_artifacts(paths, keep_files)
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
+    output = json.loads(raw['output'])
+    bins = _decode_bins(raw['bins'])
+    record = RunRecord(
+        problem_type=problem_type,
+        options=dict(options),
+        stdout=raw['stdout'],
+        stderr=raw['stderr'],
+        wall_time=wall_time,
+    )
 
     status, value, bound = _classify(instance.objective, output, bins)
     return Result(
@@ -223,17 +236,3 @@ def solve_instance(
         solve_time=_number(output.get('Time')),
         run=record,
     )
-
-
-def _copy_artifacts(paths: Dict[str, str], destination: str) -> None:
-    """
-    Copy every produced file into a directory that outlives the solve.
-
-    :param paths: The file paths used for the solve.
-    :param destination: Directory to copy into; created when absent.
-    """
-    if not os.path.isdir(destination):
-        os.makedirs(destination)
-    for path in paths.values():
-        if os.path.isfile(path):
-            shutil.copy2(path, os.path.join(destination, os.path.basename(path)))

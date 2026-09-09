@@ -102,51 +102,47 @@ def solve(
         instance: Instance,
         time_limit: Optional[float] = None,
         memory_limit: Optional[int] = None,
-        seed: Optional[int] = None,
         verbosity_level: int = 0,
         optimization_mode: Optional[OptimizationMode] = None,
         unloading_constraint: Optional[UnloadingConstraint] = None,
         linear_programming_solver: Optional[str] = None,
-        grace_seconds: Optional[float] = None,
-        keep_files: Optional[str] = None,
 ) -> Result:
     """
     Solve a stacked 3D bin packing instance with the ``boxstacks`` solver.
 
+    The solver runs in-process; a crash inside upstream would take the
+    interpreter with it.  Callers that need isolation run this in a worker
+    process of their own.
+
     :param instance: The instance to solve.
     :param time_limit: Seconds of search.  ``None`` lets the solver run to its
         own completion; pass a limit for anything but tiny inputs.
-    :param memory_limit: Mebibytes the solver may use, enforced both through
-        ``--memory-limit`` and, on POSIX, as a hard address space rlimit.
-    :param seed: Forwarded as ``--seed``.  Upstream ignores it today.
-    :param verbosity_level: Forwarded as ``--verbosity-level``.
+    :param memory_limit: Mebibytes the solver may use, checked by upstream at
+        its own checkpoints; there is no hard limit.
+    :param verbosity_level: Upstream's ``verbosity_level``; the log ends up in
+        :attr:`~packingsolver3d.result.RunRecord.stdout`.
     :param optimization_mode: Anytime versus fixed-schedule search.
     :param unloading_constraint: Overrides
         :attr:`packingsolver3d.model.Instance.unloading_constraint` for this
         call.
 
     .. note::
-        At the pinned upstream commit the ``boxstacks`` executable reads
-        :attr:`~packingsolver3d.model.Instance.defects` and echoes them in its
-        certificate, but places stacks over them all the same; this was
-        observed with corner, interior and full-width defects.  The field is
-        forwarded faithfully and nothing is claimed about the placements
-        avoiding it until upstream changes.
+        At the pinned upstream commit the ``boxstacks`` solver accepts
+        :attr:`~packingsolver3d.model.Instance.defects` but places stacks over
+        them all the same; this was observed with corner, interior and
+        full-width defects.  The field is forwarded faithfully and nothing is
+        claimed about the placements avoiding it until upstream changes.
 
     :param linear_programming_solver: Override the linear programming backend
-        name.  The bundled executables ship HiGHS only.
-    :param grace_seconds: Seconds allowed past ``time_limit`` before the child
-        process is killed.
-    :param keep_files: Directory to preserve the generated instance and output
-        files in.
+        name.  The bundled module has HiGHS only.
     :return: The :class:`~packingsolver3d.result.Result`.  Bins carry
         :attr:`~packingsolver3d.result.PackedBin.stacks` here, which ``box``
         results never do.
     :raise StackSemanticsError: When item types sharing a stackability bucket
         differ in footprint, see :func:`validate`.
-    :raise InvalidInstanceError: When the instance is structurally invalid.
-    :raise SolverFailedError: When the solver exited non-zero.
-    :raise SolverTimeoutError: When the solver outran its wall clock guard.
+    :raise InvalidInstanceError: When the instance is structurally invalid, or
+        upstream's ``InstanceBuilder`` rejects it.
+    :raise SolverFailedError: When upstream threw during the solve.
 
     Example::
 
@@ -168,20 +164,10 @@ def solve(
     validate(instance)
 
     options = core_options(
-        seed=seed,
+        time_limit=time_limit,
+        memory_limit=memory_limit,
         verbosity_level=verbosity_level,
         optimization_mode=optimization_mode,
         linear_programming_solver=linear_programming_solver,
     )
-    if unloading_constraint is not None:
-        options.extend(['--unloading-constraint', unloading_constraint.value])
-
-    return solve_instance(
-        'boxstacks',
-        instance,
-        options=options,
-        time_limit=time_limit,
-        memory_limit=memory_limit,
-        grace_seconds=grace_seconds,
-        keep_files=keep_files,
-    )
+    return solve_instance('boxstacks', instance, options, unloading_constraint=unloading_constraint)

@@ -44,7 +44,7 @@ RunRecord
 -----------------------------------------------------
 
 .. autoclass:: RunRecord
-    :members: argv,returncode,stdout,stderr,wall_time,binary_sha256,timed_out
+    :members: problem_type,options,stdout,stderr,wall_time
 
 
 Result

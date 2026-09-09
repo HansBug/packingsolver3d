@@ -18,12 +18,6 @@ PackingSolverError
 .. autoclass:: PackingSolverError
 
 
-BinaryNotFoundError
------------------------------------------------------
-
-.. autoclass:: BinaryNotFoundError
-
-
 InvalidInstanceError
 -----------------------------------------------------
 
@@ -36,16 +30,16 @@ UnsupportedFeatureError
 .. autoclass:: UnsupportedFeatureError
 
 
+StackSemanticsError
+-----------------------------------------------------
+
+.. autoclass:: StackSemanticsError
+
+
 SolverFailedError
 -----------------------------------------------------
 
 .. autoclass:: SolverFailedError
     :members: __init__
-
-
-SolverTimeoutError
------------------------------------------------------
-
-.. autoclass:: SolverTimeoutError
 
 
