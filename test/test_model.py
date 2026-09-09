@@ -3,7 +3,8 @@ import dataclasses
 import pytest
 
 from packingsolver3d import (
-    ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, OptimizationMode, Rotation, UnloadingConstraint,
+    ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, OptimizationMode, Rotation, SemiTrailerTruck,
+    UnloadingConstraint,
 )
 
 
@@ -66,7 +67,19 @@ class TestBinType:
 
     def test_stackable(self):
         assert BinType(x=1, y=1, z=1, maximum_stack_density=1.0).is_stackable
+        assert BinType(x=1, y=1, z=1, semi_trailer_truck=SemiTrailerTruck()).is_stackable
         assert not BinType(x=1, y=1, z=1, maximum_weight=1.0).is_stackable
+
+    def test_terse_repr(self):
+        assert repr(BinType(x=100, y=100, z=100, cost=10, copies=5)) == 'BinType(x=100, y=100, z=100, cost=10, copies=5)'
+        assert 'semi_trailer_truck=SemiTrailerTruck(' in repr(BinType(x=1, y=1, z=1, semi_trailer_truck=SemiTrailerTruck()))
+
+    def test_truck_defaults(self):
+        truck = SemiTrailerTruck()
+        assert truck.tractor_weight == 0.0
+        assert truck.harness_rear_axle_distance == 0
+        assert truck.rear_axle_maximum_weight is None
+        assert truck.middle_axle_maximum_weight is None
 
 
 @pytest.mark.unittest

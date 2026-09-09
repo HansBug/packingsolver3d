@@ -33,6 +33,7 @@ __all__ = [
     'BinType',
     'Defect',
     'Instance',
+    'SemiTrailerTruck',
 ]
 
 
@@ -194,6 +195,64 @@ class ItemType:
 
 
 @dataclass(frozen=True)
+class SemiTrailerTruck:
+    """
+    Axle-weight model of a semi-trailer truck, ``boxstacks`` only.
+
+    Mirrors upstream's ``SemiTrailerTruckData`` (``algorithms/truck.hpp``):
+    the loaded weight is distributed over the rear axle of the trailer and the
+    middle axle of the tractor from these geometric parameters, and the two
+    maxima bound the result.  Distances are in the instance's length unit,
+    weights in its weight unit; upstream validates the geometry in
+    ``SemiTrailerTruckData::check`` and rejects, for example, a zero
+    ``harness_rear_axle_distance``.
+
+    :param tractor_weight: Weight of the tractor.
+    :param front_axle_middle_axle_distance: Distance between the front and
+        middle axles of the tractor.
+    :param front_axle_tractor_gravity_center_distance: Distance between the
+        front axle and the tractor's centre of gravity.
+    :param front_axle_harness_distance: Distance between the front axle and
+        the harness.
+    :param empty_trailer_weight: Weight of the empty trailer.
+    :param harness_rear_axle_distance: Distance between the harness and the
+        rear axle of the trailer.
+    :param trailer_gravity_center_rear_axle_distance: Distance between the
+        trailer's centre of gravity and its rear axle.
+    :param trailer_start_harness_distance: Distance between the start of the
+        trailer and the harness.
+    :param rear_axle_maximum_weight: Maximum weight on the rear axle;
+        ``None`` means unbounded.
+    :param middle_axle_maximum_weight: Maximum weight on the middle axle;
+        ``None`` means unbounded.
+
+    Example::
+
+        >>> from packingsolver3d import BinType, SemiTrailerTruck
+        >>> truck = SemiTrailerTruck(tractor_weight=8000, front_axle_middle_axle_distance=380,
+        ...                          front_axle_tractor_gravity_center_distance=100,
+        ...                          front_axle_harness_distance=320, empty_trailer_weight=6000,
+        ...                          harness_rear_axle_distance=800,
+        ...                          trailer_gravity_center_rear_axle_distance=400,
+        ...                          trailer_start_harness_distance=100,
+        ...                          rear_axle_maximum_weight=20000, middle_axle_maximum_weight=9300)
+        >>> BinType(x=1360, y=240, z=260, semi_trailer_truck=truck).is_stackable
+        True
+    """
+
+    tractor_weight: float = 0.0
+    front_axle_middle_axle_distance: int = 0
+    front_axle_tractor_gravity_center_distance: int = 0
+    front_axle_harness_distance: int = 0
+    empty_trailer_weight: float = 0.0
+    harness_rear_axle_distance: int = 0
+    trailer_gravity_center_rear_axle_distance: int = 0
+    trailer_start_harness_distance: int = 0
+    rear_axle_maximum_weight: Optional[float] = None
+    middle_axle_maximum_weight: Optional[float] = None
+
+
+@dataclass(frozen=True)
 class BinType:
     """
     One kind of container to pack into, together with how many are available.
@@ -210,6 +269,8 @@ class BinType:
         unlimited.
     :param maximum_stack_density: Upper bound on weight per unit of floor area
         of a stack.  ``boxstacks`` only.
+    :param semi_trailer_truck: Axle-weight model when the bin is a semi-trailer
+        truck, see :class:`SemiTrailerTruck`.  ``boxstacks`` only.
 
     Example::
 
@@ -226,9 +287,10 @@ class BinType:
     copies_min: int = 0
     maximum_weight: Optional[float] = None
     maximum_stack_density: Optional[float] = None
+    semi_trailer_truck: Optional[SemiTrailerTruck] = None
 
     #: Fields that only ``boxstacks`` understands.
-    STACKING_FIELDS = ('maximum_stack_density',)
+    STACKING_FIELDS = ('maximum_stack_density', 'semi_trailer_truck')
 
     @property
     def is_stackable(self) -> bool:

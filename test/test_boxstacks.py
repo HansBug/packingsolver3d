@@ -1,7 +1,8 @@
 import pytest
 
 from packingsolver3d import (
-    BinType, Instance, ItemType, Objective, Rotation, StackSemanticsError, Status, UnloadingConstraint, boxstacks,
+    BinType, Instance, ItemType, Objective, Rotation, StackSemanticsError, Status, UnloadingConstraint,
+    UnsupportedFeatureError, boxstacks,
 )
 
 
@@ -56,6 +57,24 @@ class TestSolve:
         )
         boxstacks.validate(instance)
 
+    def test_side_rotations_are_refused(self):
+        # Observed upstream: an item allowing only XZY ends in
+        # SolutionBuilder::add_item throwing "forbidden rotation".
+        instance = Instance(
+            bin_types=[BinType(x=90, y=10, z=10)],
+            item_types=[ItemType(x=90, y=10, z=10, rotations=[Rotation.XZY, Rotation.ZYX])],
+            objective=Objective.KNAPSACK,
+        )
+        with pytest.raises(UnsupportedFeatureError) as exc_info:
+            boxstacks.solve(instance, time_limit=1.0)
+        assert 'upright' in str(exc_info.value)
+        upright = Instance(
+            bin_types=instance.bin_types,
+            item_types=[ItemType(x=90, y=10, z=10, rotations=[Rotation.XZY, Rotation.XYZ])],
+            objective=Objective.KNAPSACK,
+        )
+        assert boxstacks.solve(upright, time_limit=1.0).number_of_bins == 1
+
     def test_rotation_can_match_footprints(self):
         turning = Instance(
             bin_types=[BinType(x=100, y=100, z=100)],
@@ -74,12 +93,13 @@ class TestSolve:
         )
         with pytest.raises(StackSemanticsError):
             boxstacks.validate(oriented)
-        # Rotations that stand the item on its side change the footprint too.
+        # Rotations that stand the item on its side change the footprint too
+        # (the item keeps an upright rotation as well, which boxstacks requires).
         side = Instance(
             bin_types=turning.bin_types,
             item_types=[
                 ItemType(x=20, y=30, z=40, stackability_id=0),
-                ItemType(x=40, y=30, z=20, stackability_id=0, rotations=[Rotation.ZYX]),
+                ItemType(x=40, y=30, z=20, stackability_id=0, rotations=[Rotation.XYZ, Rotation.ZYX]),
             ],
         )
         boxstacks.validate(side)

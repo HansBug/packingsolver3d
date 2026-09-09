@@ -1,7 +1,8 @@
 import pytest
 
 from packingsolver3d import (
-    ALL_ROTATIONS, BinType, Defect, Instance, InvalidInstanceError, ItemType, Objective, Rotation, UnloadingConstraint,
+    ALL_ROTATIONS, BinType, Defect, Instance, InvalidInstanceError, ItemType, Objective, Rotation, SemiTrailerTruck,
+    UnloadingConstraint,
 )
 from packingsolver3d._encode import instance_payload
 
@@ -53,6 +54,21 @@ class TestInstancePayload:
             'maximum_stackability': 3, 'maximum_weight_above': 100,
         }
         assert 'nesting_height' not in payload['items'][1]
+
+    def test_semi_trailer_truck(self):
+        truck = SemiTrailerTruck(tractor_weight=8000, front_axle_middle_axle_distance=380,
+                                 harness_rear_axle_distance=800, rear_axle_maximum_weight=20000)
+        instance = Instance(bin_types=[BinType(x=100, y=10, z=10, semi_trailer_truck=truck)],
+                            item_types=[ItemType(x=1, y=1, z=1)])
+        spec = instance_payload(instance)['bins'][0]
+        # Zero-valued geometry is forwarded (upstream's own default), unset maxima are left out.
+        assert spec['semi_trailer_truck'] == {
+            'tractor_weight': 8000, 'front_axle_middle_axle_distance': 380,
+            'front_axle_tractor_gravity_center_distance': 0, 'front_axle_harness_distance': 0,
+            'empty_trailer_weight': 0.0, 'harness_rear_axle_distance': 800,
+            'trailer_gravity_center_rear_axle_distance': 0, 'trailer_start_harness_distance': 0,
+            'rear_axle_maximum_weight': 20000,
+        }
 
     def test_defects_and_unloading(self, defect_instance):
         payload = instance_payload(defect_instance)

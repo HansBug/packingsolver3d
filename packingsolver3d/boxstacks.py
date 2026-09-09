@@ -18,7 +18,7 @@ Overview:
 from typing import Dict, FrozenSet, Optional, Tuple
 
 from ._solve import core_options, solve_instance
-from .errors import StackSemanticsError
+from .errors import StackSemanticsError, UnsupportedFeatureError
 from .model import Instance, ItemType, OptimizationMode, Rotation, UnloadingConstraint
 from .result import Result
 
@@ -66,9 +66,17 @@ def validate(instance: Instance) -> None:
     a ``30 x 20`` item that may turn (:attr:`~packingsolver3d.model.Rotation.YXZ`)
     do share a footprint and pass.
 
+    ``boxstacks`` also keeps every item's z axis vertical: the sequential
+    one-dimensional / rectangle phase only ever considers ``XYZ`` and ``YXZ``
+    (``sequential_onedimensional_rectangle.cpp``), and an item type that allows
+    neither ends in ``SolutionBuilder::add_item`` throwing "forbidden
+    rotation" mid-solve.  Such item types are refused up front.
+
     :param instance: The instance to check.
     :raise StackSemanticsError: When two item types share a stackability
         bucket but no footprint.
+    :raise UnsupportedFeatureError: When an item type allows only rotations
+        that tip it on its side.
 
     Example::
 
@@ -82,6 +90,16 @@ def validate(instance: Instance) -> None:
             ...
         packingsolver3d.errors.StackSemanticsError: ...
     """
+    upright = {Rotation.XYZ, Rotation.YXZ}
+    for index, item_type in enumerate(instance.item_types):
+        if item_type.rotations is not None and not upright & set(item_type.rotations):
+            raise UnsupportedFeatureError(
+                'item type #{index} allows only {rotations}; the boxstacks solver keeps items '
+                'upright and places them in XYZ or YXZ only'.format(
+                    index=index, rotations=sorted(r.value for r in item_type.rotations),
+                )
+            )
+
     buckets = {}  # type: Dict[Tuple[int, int], Tuple[int, FrozenSet[Tuple[int, int]]]]
     for index, item_type in enumerate(instance.item_types):
         bucket = (item_type.group_id or 0, item_type.stackability_id or 0)

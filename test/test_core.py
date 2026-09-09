@@ -72,6 +72,56 @@ class TestModule:
         placement = raw['bins'][0]['placements'][0]
         assert (placement['lx'], placement['ly'], placement['lz'], placement['rotation']) == (10, 90, 10, 'YXZ')
 
+    # A 90 x 10 x 10 rod placed under each rotation, in a bin shaped for it;
+    # the extents follow upstream's ItemType::x/y/z(Rotation) tables.
+    @pytest.mark.parametrize('rotation, bin_dims, extents', [
+        ('XYZ', (90, 10, 10), (90, 10, 10)),
+        ('YXZ', (10, 90, 10), (10, 90, 10)),
+        ('ZYX', (10, 10, 90), (10, 10, 90)),
+        ('YZX', (10, 10, 90), (10, 10, 90)),
+        ('XZY', (90, 10, 10), (90, 10, 10)),
+        ('ZXY', (10, 90, 10), (10, 90, 10)),
+    ])
+    def test_every_rotation(self, rotation, bin_dims, extents):
+        payload = _payload(
+            bins=[{'x': bin_dims[0], 'y': bin_dims[1], 'z': bin_dims[2], 'copies': 1}],
+            items=[{'x': 90, 'y': 10, 'z': 10, 'rotations': [rotation]}],
+            objective='knapsack',
+        )
+        raw = _core.box_solve(payload, {'time_limit': 1.0, 'linear_programming_solver': 'highs'})
+        placement = raw['bins'][0]['placements'][0]
+        assert (placement['lx'], placement['ly'], placement['lz']) == extents
+        assert placement['rotation'] == rotation
+        # boxstacks keeps z vertical: only the two upright rotations are placed;
+        # the others are refused by boxstacks.validate before reaching the bridge.
+        if rotation in ('XYZ', 'YXZ'):
+            raw = _core.boxstacks_solve(payload, {'time_limit': 1.0, 'linear_programming_solver': 'highs'})
+            placement = raw['bins'][0]['placements'][0]
+            assert (placement['lx'], placement['ly'], placement['lz']) == extents
+            assert placement['rotation'] == rotation
+
+    def test_semi_trailer_truck(self):
+        payload = _payload(
+            bins=[{'x': 1360, 'y': 240, 'z': 260, 'cost': 1, 'copies': 1, 'maximum_weight': 24000.0,
+                   'maximum_stack_density': 1000.0,
+                   'semi_trailer_truck': {
+                       'tractor_weight': 8000.0, 'front_axle_middle_axle_distance': 380,
+                       'front_axle_tractor_gravity_center_distance': 100, 'front_axle_harness_distance': 320,
+                       'empty_trailer_weight': 6000.0, 'harness_rear_axle_distance': 800,
+                       'trailer_gravity_center_rear_axle_distance': 400, 'trailer_start_harness_distance': 100,
+                       'rear_axle_maximum_weight': 20000.0, 'middle_axle_maximum_weight': 9300.0}}],
+            items=[{'x': 100, 'y': 200, 'z': 200, 'weight': 100.0, 'copies': 2, 'stackability_id': 0,
+                    'maximum_stackability': 1}],
+        )
+        raw = _core.boxstacks_solve(payload, {'time_limit': 2.0, 'linear_programming_solver': 'highs'})
+        assert json.loads(raw['output'])['Solution']['NumberOfItems'] == 2
+
+    def test_semi_trailer_truck_check(self):
+        # Upstream's SemiTrailerTruckData::check rejects a truck without geometry.
+        payload = _payload(bins=[{'x': 10, 'y': 10, 'z': 10, 'semi_trailer_truck': {'tractor_weight': 1.0}}])
+        with pytest.raises(ValueError):
+            _core.boxstacks_solve(payload, {})
+
     @pytest.mark.parametrize('payload, options, message', [
         (_payload(objective='bogus'), {}, 'unknown objective'),
         (_payload(), {'linear_programming_solver': 'nope'}, 'unknown linear programming solver'),

@@ -21,6 +21,12 @@ _ITEM_OPTIONAL = (
     'group_id', 'stackability_id', 'nesting_height', 'maximum_stackability', 'maximum_weight_above',
 )
 _BIN_OPTIONAL = ('cost', 'copies', 'copies_min', 'maximum_weight', 'maximum_stack_density')
+_TRUCK_FIELDS = (
+    'tractor_weight', 'front_axle_middle_axle_distance', 'front_axle_tractor_gravity_center_distance',
+    'front_axle_harness_distance', 'empty_trailer_weight', 'harness_rear_axle_distance',
+    'trailer_gravity_center_rear_axle_distance', 'trailer_start_harness_distance',
+    'rear_axle_maximum_weight', 'middle_axle_maximum_weight',
+)
 
 
 def _item_spec(item_type: ItemType) -> Dict[str, Any]:
@@ -40,6 +46,11 @@ def _bin_spec(bin_type: BinType) -> Dict[str, Any]:
         value = getattr(bin_type, name)
         if value is not None:
             spec[name] = value
+    if bin_type.semi_trailer_truck is not None:
+        truck = bin_type.semi_trailer_truck
+        spec['semi_trailer_truck'] = {
+            field: getattr(truck, field) for field in _TRUCK_FIELDS if getattr(truck, field) is not None
+        }
     return spec
 
 

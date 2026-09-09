@@ -65,7 +65,12 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements-build.txt
           cmake --version
+      # On Linux the bridge is gcov-instrumented and `make unittest` folds its
+      # C++ coverage into coverage.xml next to the Python coverage; the wheels
+      # are never built this way.
       - name: Build the extension
+        env:
+          LINETRACE: ${{ runner.os == 'Linux' && '1' || '' }}
         shell: bash
         run: |
           make build
@@ -85,7 +90,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false

@@ -58,6 +58,18 @@ find_package(pybind11 CONFIG REQUIRED)
 
 pybind11_add_module(_core MODULE packingsolver3d/_core.cpp)
 target_link_libraries(_core PRIVATE PackingSolver::box PackingSolver::boxstacks)
+
+# Coverage of the bridge itself (not of upstream): gcov instrumentation on the
+# module's own translation unit, read back with gcovr after the test run.
+option(PS3D_COVERAGE "Instrument packingsolver3d/_core.cpp for gcov" OFF)
+if(PS3D_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(_core PRIVATE --coverage -O0)
+        target_link_options(_core PRIVATE --coverage)
+    else()
+        message(WARNING "PS3D_COVERAGE needs GCC or Clang; ignored for ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+endif()
 if(MSVC)
     set_target_properties(_core PROPERTIES
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")

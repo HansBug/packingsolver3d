@@ -36,7 +36,7 @@ help:
 	@echo ""
 	@echo "Building and Packaging:"
 	@echo "  make build        - Build the _core extension (upstream + pybind11 bridge) in place"
-	@echo "                      Options: JOBS=<n>"
+	@echo "                      Options: JOBS=<n> LINETRACE=1 (gcov-instrumented bridge)"
 	@echo "  make build_clean  - Remove the CMake build tree and the built extension"
 	@echo "  make package      - Build Python package (sdist and wheel)"
 	@echo "  make clean        - Remove build artifacts"
@@ -46,6 +46,8 @@ help:
 	@echo "  make unittest     - Run unit tests with pytest"
 	@echo "                      Options: RANGE_DIR=<dir> COV_TYPES='xml term-missing'"
 	@echo "                               MIN_COVERAGE=<percent> WORKERS=<n>"
+	@echo "                      After 'LINETRACE=1 make build', coverage.xml also carries"
+	@echo "                      the gcov line coverage of packingsolver3d/_core.cpp"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         - Build documentation (auto-detects language)"
@@ -85,6 +87,12 @@ clean:
 
 test: unittest
 
+# When the bridge was built instrumented (LINETRACE=1 make build), its gcov data
+# lands next to the object file in the CMake tree; gcovr renders it as Cobertura
+# and folds it into pytest-cov's coverage.xml, so one file carries both
+# languages (gcovr reads coverage.py's Cobertura through --cobertura-add-tracefile).
+GCOV_DATA_DIR := ${CMAKE_BUILD_DIR}/CMakeFiles/_core.dir/packingsolver3d
+
 unittest:
 	UNITTEST=1 \
 		$(PYTHON) -m pytest "${RANGE_TEST_DIR}" \
@@ -94,6 +102,17 @@ unittest:
 		--cov="${RANGE_SRC_DIR}" \
 		$(if ${MIN_COVERAGE},--cov-fail-under=${MIN_COVERAGE},) \
 		$(if ${WORKERS},-n ${WORKERS},)
+	@if ls "${GCOV_DATA_DIR}"/*.gcda >/dev/null 2>&1 && [ -f coverage.xml ]; then \
+		echo "Folding gcov coverage of packingsolver3d/_core.cpp into coverage.xml"; \
+		$(PYTHON) -m gcovr --root "${PROJ_DIR}" --object-directory "${CMAKE_BUILD_DIR}" \
+			--filter "packingsolver3d/_core\\.cpp" --cobertura .coverage-cpp.xml && \
+		$(PYTHON) -m gcovr --root "${PROJ_DIR}" \
+			--cobertura-add-tracefile coverage.xml --cobertura-add-tracefile .coverage-cpp.xml \
+			--cobertura .coverage-merged.xml --txt=- --print-summary && \
+		mv -f .coverage-merged.xml coverage.xml && rm -f .coverage-cpp.xml; \
+	else \
+		echo "No gcov data for packingsolver3d/_core.cpp; run 'LINETRACE=1 make build' to include C++ coverage"; \
+	fi
 
 docs:
 	$(MAKE) -C "${DOC_DIR}" build

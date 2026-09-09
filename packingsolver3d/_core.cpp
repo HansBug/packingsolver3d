@@ -20,6 +20,7 @@
 #include "packingsolver/box/optimize.hpp"
 #include "packingsolver/boxstacks/instance_builder.hpp"
 #include "packingsolver/boxstacks/optimize.hpp"
+#include "packingsolver/algorithms/truck.hpp"
 
 namespace py = pybind11;
 
@@ -298,6 +299,22 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
         double maximum_stack_density = 0.0;
         if (read(spec, "maximum_stack_density", maximum_stack_density)) {
             builder.set_bin_type_maximum_stack_density(bin_type_id, maximum_stack_density);
+        }
+        if (spec.contains("semi_trailer_truck") && !spec["semi_trailer_truck"].is_none()) {
+            py::dict truck_spec = spec["semi_trailer_truck"].cast<py::dict>();
+            packingsolver::SemiTrailerTruckData truck;
+            truck.is = true;
+            read(truck_spec, "tractor_weight", truck.tractor_weight);
+            read(truck_spec, "front_axle_middle_axle_distance", truck.front_axle_middle_axle_distance);
+            read(truck_spec, "front_axle_tractor_gravity_center_distance", truck.front_axle_tractor_gravity_center_distance);
+            read(truck_spec, "front_axle_harness_distance", truck.front_axle_harness_distance);
+            read(truck_spec, "empty_trailer_weight", truck.empty_trailer_weight);
+            read(truck_spec, "harness_rear_axle_distance", truck.harness_rear_axle_distance);
+            read(truck_spec, "trailer_gravity_center_rear_axle_distance", truck.trailer_gravity_center_rear_axle_distance);
+            read(truck_spec, "trailer_start_harness_distance", truck.trailer_start_harness_distance);
+            read(truck_spec, "rear_axle_maximum_weight", truck.rear_axle_maximum_weight);
+            read(truck_spec, "middle_axle_maximum_weight", truck.middle_axle_maximum_weight);
+            builder.set_bin_type_semi_trailer_truck_parameters(bin_type_id, truck);
         }
     }
     if (instance_spec.contains("defects") && !instance_spec["defects"].is_none()) {

@@ -159,6 +159,9 @@ class CMakeBuild(build_ext):
             pass
         else:
             cmake_args.append('-Dpybind11_DIR=' + pybind11.get_cmake_dir())
+        # LINETRACE is the house convention for coverage-instrumented builds.
+        coverage = 'ON' if os.environ.get('LINETRACE') else 'OFF'
+        cmake_args.append('-DPS3D_COVERAGE=' + coverage)
         generator = os.environ.get('CMAKE_GENERATOR')
         if generator:
             cmake_args.extend(['-G', generator])

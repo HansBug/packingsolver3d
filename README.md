@@ -2,6 +2,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/packingsolver3d)](https://pypi.org/project/packingsolver3d/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/packingsolver3d)
+![Loc](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/HansBug/d0126f7605b5f41d35257f38e15efb7e/raw/loc.json)
+![Comments](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/HansBug/d0126f7605b5f41d35257f38e15efb7e/raw/comments.json)
 
 [![Code Test](https://github.com/HansBug/packingsolver3d/workflows/Code%20Test/badge.svg)](https://github.com/HansBug/packingsolver3d/actions?query=workflow%3A%22Code+Test%22)
 [![Release Test](https://github.com/HansBug/packingsolver3d/workflows/Release%20Test/badge.svg)](https://github.com/HansBug/packingsolver3d/actions?query=workflow%3A%22Release+Test%22)
@@ -27,7 +29,7 @@ PackingSolver covers several problem families. This package deliberately exposes
 | Module | Upstream solver | What it adds |
 |---|---|---|
 | `packingsolver3d.box` | `PackingSolver::box` | Plain 3D bin packing: bins, items, rotations, weight capacity, the full algorithm portfolio as keyword switches |
-| `packingsolver3d.boxstacks` | `PackingSolver::boxstacks` | Everything above plus stacks, stackability ids, nesting, maximum weight above, stack density, defects and unloading constraints |
+| `packingsolver3d.boxstacks` | `PackingSolver::boxstacks` | Everything above plus stacks, stackability ids, nesting, maximum weight above, stack density, semi-trailer truck axle weights, defects and unloading constraints |
 
 `rectangle`, `rectangleguillotine`, `onedimensional` and `irregular` are out of scope; use upstream directly for those.
 
@@ -90,6 +92,7 @@ cd packingsolver3d
 pip install -r requirements-test.txt -r requirements-build.txt
 make build      # compile upstream + the pybind11 bridge into packingsolver3d/_core
 make unittest   # pytest with coverage
+LINETRACE=1 make build && make unittest   # coverage.xml then also covers the C++ bridge
 make rst_auto   # regenerate API reference pages
 make docs       # sphinx html
 make package    # sdist + wheel

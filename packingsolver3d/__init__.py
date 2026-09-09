@@ -29,7 +29,7 @@ from .config.meta import __VERSION__ as __version__
 from .errors import InvalidInstanceError, PackingSolverError, SolverFailedError, StackSemanticsError, \
     UnsupportedFeatureError
 from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, \
-    OptimizationMode, Rotation, UnloadingConstraint
+    OptimizationMode, Rotation, SemiTrailerTruck, UnloadingConstraint
 from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
 
 __all__ = [
@@ -47,6 +47,7 @@ __all__ = [
     'Result',
     'Rotation',
     'RunRecord',
+    'SemiTrailerTruck',
     'SolverFailedError',
     'Stack',
     'StackSemanticsError',
