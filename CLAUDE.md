@@ -63,6 +63,7 @@ Two upstream behaviours are encoded in the façade rather than hidden: `tree_sea
 |- requirements.txt                  # runtime: empty on purpose, the package is stdlib-only
 |- requirements-build.txt            # setuptools, wheel, build, cmake, pybind11
 |- requirements-test.txt
+|- requirements-cov.txt             # gcovr, for folding the bridge's C++ coverage into coverage.xml
 |- requirements-doc.txt
 |- codecov.yml
 |- .readthedocs.yaml
@@ -105,7 +106,7 @@ Required tooling: CPython 3.7 to 3.14 (3.12 recommended for development), CMake 
 ```shell
 git clone --recursive https://github.com/HansBug/packingsolver3d.git
 cd packingsolver3d
-pip install -r requirements-build.txt -r requirements-test.txt -r requirements-doc.txt
+pip install -r requirements-build.txt -r requirements-test.txt -r requirements-cov.txt -r requirements-doc.txt
 make build        # cmake configure + build of upstream and the bridge, module placed in packingsolver3d/
 make unittest     # pytest -m unittest with coverage; after LINETRACE=1 make build the C++ bridge is included
 make rst_auto     # regenerate docs/source/api_doc from the package
@@ -152,7 +153,7 @@ Tests inside cibuildwheel copy `test/` into a scratch directory before running p
 
 ## Coverage
 
-One `coverage.xml` carries both languages. `pytest-cov` writes the Python part; when the bridge was built with `LINETRACE=1 make build` (CMake option `PS3D_COVERAGE`, `--coverage -O0` on `packingsolver3d/_core.cpp`, GCC/Clang only), `make unittest` runs `gcovr` on the gcov data in `build/cmake`, then merges its Cobertura output with pytest-cov's through `gcovr --cobertura-add-tracefile`, rewriting `coverage.xml` and printing one table with the `.py` files and `_core.cpp` side by side. The Linux jobs of `test.yaml` do exactly that and upload the single file to Codecov; wheels are never built instrumented. A new branch in the bridge is expected to show up in that table; if it cannot be reached from Python, it should not exist.
+One `coverage.xml` carries both languages. `pytest-cov` writes the Python part; when the bridge was built with `LINETRACE=1 make build` (CMake option `PS3D_COVERAGE`, `--coverage -O0` on `packingsolver3d/_core.cpp`, GCC/Clang only), `make unittest` runs `gcovr` (from `requirements-cov.txt`) on the gcov data in `build/cmake`, then merges its Cobertura output with pytest-cov's through `gcovr --cobertura-add-tracefile`, rewriting `coverage.xml` and printing one table with the `.py` files and `_core.cpp` side by side. The Linux jobs of `test.yaml` do exactly that and upload the single file to Codecov; wheels are never built instrumented. A new branch in the bridge is expected to show up in that table; if it cannot be reached from Python, it should not exist.
 
 ## Upstream Test Cases
 

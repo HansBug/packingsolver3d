@@ -89,7 +89,7 @@ Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of
 ```shell
 git clone --recursive https://github.com/HansBug/packingsolver3d.git
 cd packingsolver3d
-pip install -r requirements-test.txt -r requirements-build.txt
+pip install -r requirements-build.txt -r requirements-test.txt -r requirements-cov.txt
 make build      # compile upstream + the pybind11 bridge into packingsolver3d/_core
 make unittest   # pytest with coverage
 LINETRACE=1 make build && make unittest   # coverage.xml then also covers the C++ bridge

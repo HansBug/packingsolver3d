@@ -1,0 +1,5 @@
+# gcov front end that folds the bridge's C++ coverage into coverage.xml
+# (needs --cobertura-add-tracefile, gcovr >= 7, which no longer runs on 3.7).
+# Kept apart from requirements-test.txt: the wheel test environments do not
+# need it, and its lxml dependency has no wheel for every (Python, arch) pair.
+gcovr>=8; python_version >= "3.8"
