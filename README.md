@@ -33,6 +33,14 @@ PackingSolver covers several problem families. This package deliberately exposes
 
 `rectangle`, `rectangleguillotine`, `onedimensional` and `irregular` are out of scope; use upstream directly for those.
 
+| `box`: ten items in one bin | `boxstacks`: two item types, coloured by stack |
+|---|---|
+| ![box bin packing](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/figures/box_bin_packing.png) | ![boxstacks stacks](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/figures/boxstacks_stacks.png) |
+| `box`: four item types over several bins | `boxstacks`: a semi-trailer truck, axle limits leave one item out |
+| ![box multi bin](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/figures/box_multi_bin.png) | ![boxstacks truck](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/figures/boxstacks_truck.png) |
+
+The figures are real solves drawn with `packingsolver3d.visual` (optional dependency `plotly`, `pip install "packingsolver3d[plot]"`), the same drawing upstream's `scripts/visualize_box.py` produces; in the [documentation](https://packingsolver3d.readthedocs.io/en/latest/how_to/visualization/index.html) they are interactive.
+
 ## Installation
 
 ```shell
@@ -76,6 +84,15 @@ print(len(result.bins[0].stacks))  # 3
 
 Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of silently dropping the stacking fields, which is what the upstream CSV reader would do.
 
+Any result can be drawn:
+
+```python
+from packingsolver3d.visual import plot_result   # needs plotly
+
+figure = plot_result(result, color_by='stack')    # or 'item_type' (default), 'same'
+figure.show()                                     # interactive; figure.write_html('packing.html') to save
+```
+
 ## Design
 
 * **Value in, value out.** Public types are frozen dataclasses. There is no live solver handle, mutable session or callback; each `solve` call builds the upstream instance, runs `optimize()` and copies the best solution back into Python values.
@@ -102,7 +119,7 @@ packingsolver3d is a faithful binding: it does what PackingSolver does at the pi
 ```shell
 git clone --recursive https://github.com/HansBug/packingsolver3d.git
 cd packingsolver3d
-pip install -r requirements-build.txt -r requirements-test.txt -r requirements-cov.txt
+pip install -r requirements-build.txt -r requirements-test.txt -r requirements-cov.txt -r requirements-plot.txt
 make build      # compile upstream + the pybind11 bridge into packingsolver3d/_core
 make unittest   # pytest + docstring examples, with coverage
 make doctest    # only the docstring examples (pytest --doctest-modules)

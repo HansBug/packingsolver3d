@@ -39,6 +39,14 @@ Quick Start
    for placement in result.placements:
        print(placement.bin_id, placement.x, placement.y, placement.z, placement.rotation)
 
+.. raw:: html
+   :file: _static/figures/box_bin_packing.html
+
+.. only:: latex
+
+   .. image:: _static/figures/box_bin_packing.png
+      :width: 90%
+
 The full walkthrough is :doc:`tutorials/quick_start/index`; the behaviours inherited from upstream that you should know before trusting a number are collected in :doc:`explanations/upstream_behaviours/index`.
 
 Architecture
@@ -86,12 +94,12 @@ How-to guides are task pages for readers who already know what they want to do.
     How-to roadmap <how_to/index>
     how_to/installation/index
     how_to/budgets/index
-    how_to/upstream_cases/index
+    how_to/visualization/index
 
 * :doc:`How-to roadmap <how_to/index>`
 * :doc:`how_to/installation/index`
 * :doc:`how_to/budgets/index`
-* :doc:`how_to/upstream_cases/index`
+* :doc:`how_to/visualization/index`
 
 Explanations
 ------------

@@ -8,7 +8,7 @@ Tasks
 
 * :doc:`installation/index` -- which wheel you get on which platform and Python, and what a source install needs.
 * :doc:`budgets/index` -- time and memory budgets, optimisation modes, algorithm switches, running many instances, and isolating the solver in a worker process when you need a hard limit.
-* :doc:`upstream_cases/index` -- replaying upstream's own test instances, and reading instances that are stored in upstream's CSV format.
+* :doc:`visualization/index` -- drawing a result as an interactive 3D figure, colouring by item type or stack, exporting HTML and PNG.
 
 .. toctree::
     :maxdepth: 1
@@ -16,4 +16,4 @@ Tasks
 
     installation/index
     budgets/index
-    upstream_cases/index
+    visualization/index

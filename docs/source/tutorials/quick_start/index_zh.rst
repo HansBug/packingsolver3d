@@ -55,6 +55,16 @@ Linux、macOS、Windows 的 x86_64 与 arm64 都有 wheel；各平台对应的 P
    >>> result.placements[0]
    Placement(item_type_id=0, bin_id=0, x=0, y=0, z=0, lx=20, ly=30, lz=40, rotation=<Rotation.XYZ: 'XYZ'>, stack_id=None, group_id=None)
 
+.. raw:: html
+   :file: ../../_static/figures/box_bin_packing.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/box_bin_packing.png
+      :width: 90%
+
+上图就是同一结果经 :func:`packingsolver3d.visual.plot_result` 画出的样子（见 :doc:`/how_to/visualization/index_zh`），可拖动旋转。
+
 三点值得停一下：
 
 * ``value`` 是求解器**达到**的（用了一个箱），``bound`` 是它**证明**的（至少需要一个箱）。状态是 ``OPTIMAL`` 只因为两者相符；如果求解器停在一个两箱的解而界仍是 1，状态就是 ``FEASIBLE``\ 。完整规则见 :doc:`/explanations/statuses/index_zh`。

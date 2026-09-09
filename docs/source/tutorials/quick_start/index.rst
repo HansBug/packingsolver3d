@@ -55,6 +55,16 @@ Read the result
    >>> result.placements[0]
    Placement(item_type_id=0, bin_id=0, x=0, y=0, z=0, lx=20, ly=30, lz=40, rotation=<Rotation.XYZ: 'XYZ'>, stack_id=None, group_id=None)
 
+.. raw:: html
+   :file: ../../_static/figures/box_bin_packing.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/box_bin_packing.png
+      :width: 90%
+
+The figure is the same result drawn with :func:`packingsolver3d.visual.plot_result` (see :doc:`/how_to/visualization/index`); drag to rotate it.
+
 Three things are worth pausing on:
 
 * ``value`` is what the solver achieved (one bin); ``bound`` is what it proved (at least one bin is needed). The status is ``OPTIMAL`` only because the two agree; had the solver stopped at a two-bin packing with the same bound, the status would be ``FEASIBLE``. :doc:`/explanations/statuses/index` has the full rule.

@@ -81,6 +81,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-test.txt
           pip install -r requirements-cov.txt
+          pip install -r requirements-plot.txt
       - name: Run unittest
         env:
           CI: 'true'

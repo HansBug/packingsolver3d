@@ -8,7 +8,7 @@
 
 * :doc:`installation/index_zh` —— 各平台、各 Python 版本能拿到哪个 wheel，源码安装需要什么。
 * :doc:`budgets/index_zh` —— 时间与内存预算、优化模式、算法开关、批量运行，以及需要硬性限制时如何把求解器隔离到工作进程。
-* :doc:`upstream_cases/index_zh` —— 重放上游自己的测试实例，以及读取上游 CSV 格式的实例。
+* :doc:`visualization/index_zh` —— 把结果画成可交互的三维图，按物品类型或堆上色，导出 HTML 与 PNG。
 
 .. toctree::
     :maxdepth: 1
@@ -16,4 +16,4 @@
 
     installation/index_zh
     budgets/index_zh
-    upstream_cases/index_zh
+    visualization/index_zh

@@ -34,6 +34,16 @@
 
 每个放置知道自己属于哪个堆，每个堆知道自己的底面积与总高度。``maximum_stackability=3`` 把每堆限制在三件以内；这里上游的搜索选了三堆各两件（``lz=80`` 即两个 40 高的物品），这是若干箱数同为最优的装法之一。
 
+.. raw:: html
+   :file: ../../_static/figures/boxstacks_stacks.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/boxstacks_stacks.png
+      :width: 90%
+
+上图是本实例带两种物品类型的变体、按堆上色的样子（``plot_result(result, color_by='stack')``\ ）。
+
 求解器强加的两条规则
 --------------------
 
@@ -82,6 +92,14 @@
    )
    result = boxstacks.solve(instance)
    len(result.placements)   # 3 件里装了 2 件：第三件会让中轴超载
+
+.. raw:: html
+   :file: ../../_static/figures/boxstacks_truck.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/boxstacks_truck.png
+      :width: 90%
 
 上游会校验几何参数（``SemiTrailerTruckData::check``\ ）；比如缺少 ``harness_rear_axle_distance`` 的卡车会被 :class:`~packingsolver3d.errors.InvalidInstanceError` 拒绝，消息即上游原话。
 

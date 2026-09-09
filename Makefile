@@ -1,4 +1,4 @@
-.PHONY: docs docs_en docs_zh pdocs test unittest doctest build build_clean package clean rst_auto help
+.PHONY: docs docs_en docs_zh pdocs test unittest doctest figures build build_clean package clean rst_auto help
 
 PYTHON := $(shell which python)
 
@@ -59,6 +59,8 @@ help:
 	@echo "  make pdocs        - Build production documentation with versioning"
 	@echo "  make rst_auto     - Generate RST documentation from Python source"
 	@echo "                      Options: RANGE_DIR=<dir>"
+	@echo "  make figures      - Regenerate the packing figures (HTML + PNG) under docs/source/_static/figures"
+	@echo "                      Needs plotly and kaleido with a Chrome/Chromium binary; FIGURES_ARGS=--no-png skips PNG"
 	@echo ""
 	@echo "Common Variables:"
 	@echo "  RANGE_DIR=<dir>   - Target specific directory (default: .)"
@@ -141,6 +143,12 @@ doctest:
 		--doctest-modules -p tools.doctest_plugin \
 		-o doctest_optionflags="${DOCTEST_FLAGS}" \
 		$(DOCTEST_ARGS)
+
+# The figures are committed: they are real solves rendered through
+# packingsolver3d.visual, and the documentation build must not need the
+# extension, plotly or a browser.
+figures:
+	$(PYTHON) -m tools.make_figures --output "${DOC_DIR}/source/_static/figures" $(FIGURES_ARGS)
 
 docs:
 	$(MAKE) -C "${DOC_DIR}" build

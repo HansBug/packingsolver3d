@@ -39,6 +39,14 @@
    for placement in result.placements:
        print(placement.bin_id, placement.x, placement.y, placement.z, placement.rotation)
 
+.. raw:: html
+   :file: _static/figures/box_bin_packing.html
+
+.. only:: latex
+
+   .. image:: _static/figures/box_bin_packing.png
+      :width: 90%
+
 完整流程见 :doc:`tutorials/quick_start/index_zh`；在信任数字之前应了解的、继承自上游的行为汇总在 :doc:`explanations/upstream_behaviours/index_zh`。
 
 架构
@@ -86,12 +94,12 @@
     任务指南路线图 <how_to/index_zh>
     how_to/installation/index_zh
     how_to/budgets/index_zh
-    how_to/upstream_cases/index_zh
+    how_to/visualization/index_zh
 
 * :doc:`任务指南路线图 <how_to/index_zh>`
 * :doc:`how_to/installation/index_zh`
 * :doc:`how_to/budgets/index_zh`
-* :doc:`how_to/upstream_cases/index_zh`
+* :doc:`how_to/visualization/index_zh`
 
 解释
 ----

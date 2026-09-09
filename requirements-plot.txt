@@ -1,0 +1,3 @@
+# Optional: packingsolver3d.visual draws results with plotly, as upstream's own
+# visualisation scripts do.  PNG export additionally needs kaleido.
+plotly>=5

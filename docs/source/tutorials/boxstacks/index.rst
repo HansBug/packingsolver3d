@@ -34,6 +34,16 @@ The result now carries stacks:
 
 Each placement knows its stack; each stack knows its footprint and total height. ``maximum_stackability=3`` caps a stack at three copies; here upstream's search settled on three stacks of two (``lz=80`` is two 40-high items), which is one of several packings with the same, optimal, bin count.
 
+.. raw:: html
+   :file: ../../_static/figures/boxstacks_stacks.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/boxstacks_stacks.png
+      :width: 90%
+
+The figure shows a two-item-type variant of this instance coloured by stack (``plot_result(result, color_by='stack')``).
+
 Two rules the solver imposes
 ----------------------------
 
@@ -82,6 +92,14 @@ Axle weights are modelled with :class:`~packingsolver3d.model.SemiTrailerTruck` 
    )
    result = boxstacks.solve(instance)
    len(result.placements)   # 2 of 3: the third item would overload the middle axle
+
+.. raw:: html
+   :file: ../../_static/figures/boxstacks_truck.html
+
+.. only:: latex
+
+   .. image:: ../../_static/figures/boxstacks_truck.png
+      :width: 90%
 
 Upstream validates the geometry (``SemiTrailerTruckData::check``); a truck without, say, ``harness_rear_axle_distance`` is rejected with :class:`~packingsolver3d.errors.InvalidInstanceError` carrying upstream's message.
 
