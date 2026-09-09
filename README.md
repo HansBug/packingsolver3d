@@ -8,7 +8,7 @@
 [![Code Test](https://github.com/HansBug/packingsolver3d/workflows/Code%20Test/badge.svg)](https://github.com/HansBug/packingsolver3d/actions?query=workflow%3A%22Code+Test%22)
 [![Release Test](https://github.com/HansBug/packingsolver3d/workflows/Release%20Test/badge.svg)](https://github.com/HansBug/packingsolver3d/actions?query=workflow%3A%22Release+Test%22)
 [![Package Release](https://github.com/HansBug/packingsolver3d/workflows/Release/badge.svg)](https://github.com/HansBug/packingsolver3d/actions?query=workflow%3A%22Release%22)
-[![codecov](https://codecov.io/gh/HansBug/packingsolver3d/branch/master/graph/badge.svg)](https://codecov.io/gh/HansBug/packingsolver3d)
+[![codecov](https://codecov.io/gh/HansBug/packingsolver3d/branch/main/graph/badge.svg)](https://codecov.io/gh/HansBug/packingsolver3d)
 
 [![GitHub stars](https://img.shields.io/github/stars/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/network)
@@ -16,7 +16,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/issues)
 [![GitHub pulls](https://img.shields.io/github/issues-pr/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/pulls)
 [![Contributors](https://img.shields.io/github/contributors/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/graphs/contributors)
-[![GitHub license](https://img.shields.io/github/license/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/github/license/HansBug/packingsolver3d)](https://github.com/HansBug/packingsolver3d/blob/main/LICENSE)
 
 Pythonic bindings for the two three-dimensional solvers of [PackingSolver](https://github.com/fontanf/packingsolver), `box` and `boxstacks`. The upstream C++ is compiled together with a thin pybind11 bridge into one extension module, so a wheel install needs no compiler and every solve runs in-process.
 
@@ -39,7 +39,7 @@ PackingSolver covers several problem families. This package deliberately exposes
 pip install packingsolver3d
 ```
 
-Wheels are published for CPython 3.7 through 3.14 on Linux (x86_64, aarch64, ppc64le, s390x), macOS (x86_64, arm64) and Windows (AMD64). No compiler is needed for a wheel install. Installing from the sdist compiles PackingSolver and the bridge from the vendored sources and needs CMake >= 3.28, a C++17 compiler and network access for upstream's `FetchContent` dependencies.
+Wheels are published for Linux (x86_64, aarch64), macOS (x86_64, arm64) and Windows (AMD64, ARM64), for every CPython the platform has an official build of: 3.7 through 3.14 on Linux x86_64 and Windows AMD64, 3.8 through 3.14 on Linux aarch64 and macOS, 3.11 through 3.14 on Windows ARM64. No compiler is needed for a wheel install. Other architectures (i686, ppc64le, s390x, armv7l, riscv64, loongarch64) are not built as wheels; `pip` falls back to the sdist there. Installing from the sdist compiles PackingSolver and the bridge from the vendored sources and needs CMake >= 3.28, a C++17 compiler and network access for upstream's `FetchContent` dependencies.
 
 ## Quick start
 

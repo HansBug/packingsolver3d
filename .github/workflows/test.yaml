@@ -100,7 +100,7 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-  # Wheel smoke on every platform; the full Python x architecture breadth lives in Release Test.
+  # Wheel smoke on every (runner, architecture) pair; the Python breadth lives in Release Test.
   test_wheel_build:
     name: Try Build
     runs-on: ${{ matrix.os }}
@@ -113,19 +113,32 @@ jobs:
         include:
           - os: 'ubuntu-22.04'
             python: '3.7'  # exercises the last cibuildwheel line that still targets cp37
-            architecture: 'x86_64'
+            arch: x86_64
+            uname: x86_64
           - os: 'ubuntu-22.04'
             python: '3.12'
-            architecture: 'x86_64'
+            arch: x86_64
+            uname: x86_64
+          - os: 'ubuntu-22.04-arm'
+            python: '3.12'
+            arch: aarch64
+            uname: aarch64
           - os: 'windows-2022'
             python: '3.12'
-            architecture: 'AMD64'
+            arch: AMD64
+            uname: ''
+          - os: 'windows-11-arm'
+            python: '3.12'
+            arch: ARM64
+            uname: ''
           - os: 'macos-14'
             python: '3.12'
-            architecture: 'arm64'
+            arch: arm64
+            uname: arm64
           - os: 'macos-15-intel'
             python: '3.12'
-            architecture: 'x86_64'
+            arch: x86_64
+            uname: x86_64
 
     steps:
       - name: Checkout code
@@ -133,18 +146,15 @@ jobs:
         with:
           fetch-depth: 20
           submodules: 'recursive'
-      - name: Set up QEMU
-        if: ${{ runner.os == 'Linux' }}
-        uses: docker/setup-qemu-action@v3
+      - name: Check the runner architecture
+        if: ${{ matrix.uname != '' }}
+        shell: bash
+        run: |
+          [ "$(uname -m)" = "${{ matrix.uname }}" ]
       - name: Set up python ${{ matrix.python }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Verify macOS arch
-        if: ${{ runner.os == 'macOS' }}
-        shell: bash
-        run: |
-          [ "$(uname -m)" = "${{ matrix.architecture }}" ]
       - name: Prime cibuildwheel cache
         if: ${{ runner.os == 'Windows' || runner.os == 'macOS' }}
         shell: bash
@@ -163,7 +173,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_SKIP: "pp* cp31?t-*"
-          CIBW_ARCHS: ${{ matrix.architecture }}
+          CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_PROJECT_REQUIRES_PYTHON: ~=${{ matrix.python }}.0
         shell: bash
         run: |
@@ -178,5 +188,5 @@ jobs:
       - name: Upload packed files to artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ runner.os }}-cp${{ matrix.python }}-${{ matrix.architecture }}
+          name: build-artifacts-${{ runner.os }}-cp${{ matrix.python }}-${{ matrix.arch }}
           path: ./dist/*

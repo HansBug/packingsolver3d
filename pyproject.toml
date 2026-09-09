@@ -33,4 +33,4 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 ## Windows build configuration
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = ["AMD64", "ARM64"]

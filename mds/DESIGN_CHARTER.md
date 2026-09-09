@@ -3,6 +3,8 @@
 Status: draft, pre-implementation. Written 2026-09-09. This document is the agreed scope, naming, architecture and milestone plan; it is not a record of shipped behavior.
 
 
+> **Amendment (2026-09-09, wheel matrix).** Wheels are built for Windows / Linux / macOS on x86_64 and arm64 only, natively on each runner. ppc64le and s390x (IBM POWER and Z) have no realistic audience for a packing solver and cost hours of QEMU per job; i686 and armv7l are 32-bit and memory-starved; riscv64 and loongarch64 have no mature wheel ecosystem yet and loongarch64 no manylinux tag at all; wasm32 (pyodide) would be an interesting demo target once upstream builds under Emscripten. Those all fall back to the sdist. Domestic architectures and a browser build are explicitly deferred, not rejected.
+
 > **Amendment (2026-09-09).** The delivery model changed from "bundle the upstream executables and drive them through a subprocess" to "compile upstream together with a pybind11 bridge into one extension module, `packingsolver3d._core`". The value-in / value-out surface, the frozen models, the status rules and the submodule boundary are unchanged; what changed is that every solve now runs in-process, `time_limit` / `memory_limit` are upstream's own checks rather than a wall-clock guard and an `RLIMIT_AS`, and a crash inside upstream is no longer contained by a process boundary. Sections below that describe executables, CSV files, `_runner.py` or `RunRecord.argv` are historical; the tree in section 4 and `CLAUDE.md` are authoritative.
 
 ## 1. Scope decision: box **and** boxstacks

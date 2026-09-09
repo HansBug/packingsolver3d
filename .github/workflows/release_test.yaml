@@ -16,13 +16,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Every runner builds the wheel of its own architecture natively; the
+        # `include` entries only attach the cibuildwheel architecture name and
+        # the `uname -m` spelling to each runner.  Everything else (i686, ppc64le,
+        # s390x, armv7l, riscv64, loongarch64, wasm32) is served by the sdist.
         os:
-          - 'ubuntu-22.04'
-#          - 'ubuntu-22.04-arm'  # Linux aarch64/ppc64le/s390x wheels are covered via cibuildwheel + QEMU; setup-python has no 3.7 for arm64 Linux
-          - 'windows-2022'
-          - 'macos-14'        # public macOS arm64 runner
-          - 'macos-15-intel'  # public macOS x86_64 runner
-#          - 'windows-11-arm' # not enabled yet: the MSVC build chain is validated only for AMD64
+          - 'ubuntu-22.04'      # Linux x86_64
+          - 'ubuntu-22.04-arm'  # Linux aarch64, public arm64 runner
+          - 'windows-2022'      # Windows AMD64
+          - 'windows-11-arm'    # Windows ARM64, public arm64 runner
+          - 'macos-14'          # macOS arm64, public arm64 runner
+          - 'macos-15-intel'    # macOS x86_64, public Intel runner
         python:
           - '3.7'
           - '3.8'
@@ -32,54 +36,42 @@ jobs:
           - '3.12'
           - '3.13'
           - '3.14'
-        architecture:
-          - x86_64
-          - arm64
-          - aarch64
-          - AMD64
-#          - i686    # 32-bit Linux has no audience for a 3D packing solver; not built
-          - ppc64le
-          - s390x
-#          - armv7l  # musllinux only, not built
+        include:
+          - os: 'ubuntu-22.04'
+            arch: x86_64
+            uname: x86_64
+          - os: 'ubuntu-22.04-arm'
+            arch: aarch64
+            uname: aarch64
+          - os: 'windows-2022'
+            arch: AMD64
+            uname: ''
+          - os: 'windows-11-arm'
+            arch: ARM64
+            uname: ''
+          - os: 'macos-14'
+            arch: arm64
+            uname: arm64
+          - os: 'macos-15-intel'
+            arch: x86_64
+            uname: x86_64
         exclude:
-          - os: ubuntu-22.04
-            architecture: arm64
-          - os: ubuntu-22.04
-            architecture: AMD64
-          - os: windows-2022
-            architecture: x86_64
-          - os: windows-2022
-            architecture: arm64
-          - os: windows-2022
-            architecture: aarch64
-          - os: windows-2022
-            architecture: ppc64le
-          - os: windows-2022
-            architecture: s390x
-          - os: macos-14
-            architecture: aarch64
-          - os: macos-14
-            architecture: AMD64
-          - os: macos-14
-            architecture: ppc64le
-          - os: macos-14
-            architecture: s390x
-          - os: macos-14
-            architecture: x86_64
-          - os: macos-14  # python3.7 doesn't have macOS arm64 supported version
+          # actions/setup-python has no Linux arm64 or macOS build of 3.7 (EOL since 2023-06).
+          - os: 'ubuntu-22.04-arm'
             python: '3.7'
-          - os: macos-15-intel
-            architecture: aarch64
-          - os: macos-15-intel
-            architecture: AMD64
-          - os: macos-15-intel
-            architecture: arm64
-          - os: macos-15-intel
-            architecture: ppc64le
-          - os: macos-15-intel
-            architecture: s390x
-          - os: macos-15-intel  # python3.7 doesn't have macOS 11 supported version
+          - os: 'macos-14'
             python: '3.7'
+          - os: 'macos-15-intel'
+            python: '3.7'
+          # CPython ships Windows ARM64 builds from 3.11 on.
+          - os: 'windows-11-arm'
+            python: '3.7'
+          - os: 'windows-11-arm'
+            python: '3.8'
+          - os: 'windows-11-arm'
+            python: '3.9'
+          - os: 'windows-11-arm'
+            python: '3.10'
 
     steps:
       - name: Checkout code
@@ -87,17 +79,12 @@ jobs:
         with:
           fetch-depth: 20
           submodules: 'recursive'
-      - name: Set up QEMU
-        if: ${{ runner.os == 'Linux' }}
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-      - name: Check the Arch on macOS
-        if: ${{ runner.os == 'macOS' }}
+      - name: Check the runner architecture
+        if: ${{ matrix.uname != '' }}
         shell: bash
         run: |
           uname -m
-          [ "$(uname -m)" = "${{ matrix.architecture }}" ] || { echo "The architecture is not ${{ matrix.architecture }}."; exit 1; }
+          [ "$(uname -m)" = "${{ matrix.uname }}" ] || { echo "The runner is not ${{ matrix.uname }}."; exit 1; }
       - name: Set up python ${{ matrix.python }}
         uses: actions/setup-python@v6
         with:
@@ -120,7 +107,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_SKIP: "pp* cp31?t-*"
-          CIBW_ARCHS: ${{ matrix.architecture }}
+          CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_PROJECT_REQUIRES_PYTHON: ~=${{ matrix.python }}.0
         shell: bash
         run: |
@@ -135,7 +122,7 @@ jobs:
       - name: Upload packed files to artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ runner.os }}-cp${{ matrix.python }}-${{ matrix.architecture }}
+          name: build-artifacts-${{ runner.os }}-cp${{ matrix.python }}-${{ matrix.arch }}
           path: ./dist/*
 
   sdist_build:
