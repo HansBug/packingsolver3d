@@ -86,11 +86,16 @@ jobs:
         shell: bash
         run: |
           make unittest
+      # coverage.xml already carries the merged Python + C++ coverage; without
+      # these two switches the uploader also runs gcov on every .gcno it finds
+      # and reports pybind11 and upstream headers on their own.
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          disable_search: true
+          plugins: noop
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
