@@ -146,6 +146,7 @@ The pictures above are static previews because GitHub cannot run plotly; the [ga
 * **No Python object owns C++ memory.** The bridge in `packingsolver3d/_core.cpp` takes plain dicts and returns plain dicts; no upstream object outlives the call.
 * **Auditable.** `Result.run` records the problem type, the exact options handed to upstream, upstream's captured log and the wall time.
 * **Honest statuses.** `OPTIMAL` requires a solver-reported bound for the requested objective and an achieved value meeting it; otherwise the result is `FEASIBLE`, however good it looks.
+* **Thread-friendly.** The GIL is released while upstream runs and its log is collected through a per-call stream, not by redirecting `std::cout`, so several threads may solve at once (sixteen concurrent solves are in the test suite).
 * **In-process, by design.** `time_limit` and `memory_limit` are upstream's own checks. There is no process boundary: a crash inside upstream takes the interpreter with it, so callers who need isolation run `solve` in a worker process of their own.
 
 ## Behaviours inherited from upstream
@@ -159,7 +160,6 @@ packingsolver3d is a faithful binding: it does what PackingSolver does at the pi
 * **`boxstacks` accepts floor defects but places stacks over them** at the pinned commit (observed with corner, interior and full-width defects). `defects` are forwarded faithfully; do not rely on them being avoided.
 * **Limits are upstream's own checks and the solver runs in-process.** `time_limit` and `memory_limit` are checked at algorithm checkpoints; there is no hard memory limit and a crash inside upstream ends the interpreter. The [budgets guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/budgets/index.html) shows the worker-process pattern that restores both.
 * **Unset profit and cost default to geometry**: item profit to `x * y * z`, bin cost to `x * y` (an area).
-* **Upstream is not thread-safe.** Four threads calling `optimize()` at once crash the interpreter, so `solve` serialises native calls behind one process-wide lock (the GIL stays released); run parallel solves in worker processes.
 * **The `default` objective produces no solution.** It is upstream's unset placeholder, so `Instance` requires an explicit `objective` and `Objective.DEFAULT` is refused with `InvalidInstanceError`.
 * **`OPTIMAL` is only reported when the achieved value meets a bound upstream reported for that objective**; otherwise the result is `FEASIBLE`, however good it looks. Keep `value` and `bound` as two columns when you publish numbers.
 

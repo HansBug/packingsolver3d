@@ -173,8 +173,10 @@ class RunRecord:
 
     :param problem_type: ``'box'`` or ``'boxstacks'``.
     :param options: The options passed to the native module.
-    :param stdout: What upstream wrote to standard output during the solve.
-    :param stderr: What upstream wrote to standard error during the solve.
+    :param stdout: Upstream's log for the solve (its ``messages`` stream; empty
+        at ``verbosity_level=0``), collected through a per-call stream.
+    :param stderr: Reserved; always empty, since upstream reports failures
+        through exceptions rather than standard error.
     :param wall_time: Seconds the call took, measured from Python.
 
     Example::

@@ -66,13 +66,6 @@ anytime 运行不可逐次复现
 
 *本包。* 需要两次运行一致时用 ``OptimizationMode.NOT_ANYTIME_DETERMINISTIC``\ （或上游测试所用的 ``NOT_ANYTIME_SEQUENTIAL``\ ），并总是记录 ``result.run.options``\ 。
 
-上游不是线程安全的
-------------------
-
-*观察。* 在固定的上游 commit 上，四个 Python 线程同时通过桥接层调用 ``optimize()`` 会让解释器段错误崩溃；桥接层为记录运行日志而对 ``std::cout`` 做的捕获本身也不可重入。
-
-*本包。* :func:`packingsolver3d.box.solve` 与 :func:`packingsolver3d.boxstacks.solve` 在原生调用外加一把进程级的锁，并发调用者排队等待，其他 Python 线程仍能继续运行（GIL 已释放）。并行求解请用工作进程，见 :doc:`/how_to/budgets/index_zh`\ 。
-
 ``default`` 目标不产生任何解
 ----------------------------
 

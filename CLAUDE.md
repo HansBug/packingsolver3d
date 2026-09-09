@@ -152,7 +152,7 @@ Tests inside cibuildwheel copy `test/` into a scratch directory before running p
 - `_core.cpp` stays a bridge: it builds upstream objects, calls upstream, and copies results out. No solving logic, no caching, no state between calls.
 - Use upstream's types (`Length`, `BinPos`, `ItemTypeId`, ...) and upstream's stream operators for tokens; never re-implement a parser upstream already has.
 - Release the GIL around `optimize()` and touch no Python object while it is released.
-- Upstream is not thread-safe (four concurrent `optimize()` calls segfault at the pinned commit) and the bridge swaps `std::cout`'s buffer for the run log, so `_solve.solve_instance` holds the process-wide `_NATIVE_LOCK` around every native call. Never remove the lock or release it early; parallel solves belong in worker processes.
+- Collect upstream's log through `parameters.messages_streams` with a per-call `std::ostringstream` and `messages_to_stdout = false`. Never redirect `std::cout` / `std::cerr` (swapping the global stream buffer crashed under concurrent calls); calls from several threads run at the same time and the test suite checks it.
 - Capture `std::cout` / `std::cerr` for the duration of the call only, restored by RAII on every exit path.
 - Comments explain why, in English, and reference the upstream file when a workaround exists because of it.
 

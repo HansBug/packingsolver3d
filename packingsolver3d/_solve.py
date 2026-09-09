@@ -11,7 +11,6 @@ Overview:
 
 import json
 import math
-import threading
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -22,13 +21,6 @@ from .model import Instance, Objective, OptimizationMode, Rotation, UnloadingCon
 from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
 
 __all__ = ['solve_instance']
-
-#: Upstream is not thread-safe: four Python threads calling ``optimize()`` at
-#: once crash the interpreter (observed with the pinned commit), and the bridge
-#: swaps ``std::cout``'s buffer for the duration of a call.  Native calls are
-#: therefore serialised per process; parallel solves belong in worker processes.
-# ponytail: one process-wide lock, per-solver locks if upstream ever becomes re-entrant
-_NATIVE_LOCK = threading.Lock()
 
 #: How each objective reads its achieved value and its reported bound.
 #:
@@ -248,15 +240,15 @@ def solve_instance(
         is upstream's own and the partial :class:`RunRecord` is attached.
 
     .. note::
-        Only one native solve runs at a time in a process; concurrent callers
-        wait on a lock. The GIL is released while upstream runs, so other Python
-        threads keep working, but parallel solves need worker processes.
+        Calls may run concurrently from several threads: each one builds its
+        own upstream instance and parameters and receives upstream's log
+        through a per-call stream, and the GIL is released while upstream
+        runs. Sixteen threads solving at once is part of the test suite.
     """
     payload = instance_payload(instance, unloading_constraint)
     started = time.perf_counter()
     try:
-        with _NATIVE_LOCK:
-            raw = _solver(problem_type)(payload, options)
+        raw = _solver(problem_type)(payload, options)
     except ValueError as err:
         # std::invalid_argument from InstanceBuilder: the input is at fault.
         raise InvalidInstanceError('{problem_type}: {err}'.format(problem_type=problem_type, err=err))

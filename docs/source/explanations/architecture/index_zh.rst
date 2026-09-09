@@ -9,7 +9,7 @@
 什么跨越边界
 ------------
 
-桥接层只暴露两个函数：``box_solve`` 与 ``boxstacks_solve``\ 。每个函数接收普通 Python 值（由 :class:`~packingsolver3d.model.Instance` 生成的 dict 与 list），通过上游的 ``InstanceBuilder`` 构造上游实例，填充 ``OptimizeParameters``\ ，释放 GIL，调用上游的 ``optimize()``\ （每个进程同一时刻只有一个调用，由一把锁保证，因为上游不是线程安全的），再把最优解拷贝回普通值：箱、堆、放置、上游统计块、报告的界以及捕获的日志。没有任何上游对象存活到调用之后；Python 侧不持有任何指向求解器内存的指针、缓冲或引用，所以 C++ 的生命周期从不成为调用者的问题。
+桥接层只暴露两个函数：``box_solve`` 与 ``boxstacks_solve``\ 。每个函数接收普通 Python 值（由 :class:`~packingsolver3d.model.Instance` 生成的 dict 与 list），通过上游的 ``InstanceBuilder`` 构造上游实例，填充 ``OptimizeParameters``\ ，释放 GIL，调用上游的 ``optimize()``\ ，再把最优解拷贝回普通值：箱、堆、放置、上游统计块、报告的界以及捕获的日志。没有任何上游对象存活到调用之后；Python 侧不持有任何指向求解器内存的指针、缓冲或引用，所以 C++ 的生命周期从不成为调用者的问题。上游日志通过它自己的按调用 ``messages_streams`` 钩子收集，而不是重定向 ``std::cout``\ ，因此多个线程可以同时求解；测试套件包含十六线程并发求解。
 
 字段名、目标令牌、旋转名与选项名都是上游原文；桥接层用上游自己的流算符解析令牌而不是重新实现。载荷中缺失的键不会触发相应的 builder setter，于是上游默认值生效——与上游 CSV 读取器对缺失列的处理完全相同。
 

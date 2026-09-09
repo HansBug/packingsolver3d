@@ -164,8 +164,9 @@ class TestSolveInstance:
 
 @pytest.mark.unittest
 class TestConcurrency:
-    def test_concurrent_solves_are_serialised(self, box_instance):
-        # Upstream is not thread-safe; solve_instance holds a process-wide lock around the native call.
+    def test_concurrent_solves(self, box_instance):
+        # The bridge used to swap std::cout's buffer per call, which crashed under concurrency; the log now
+        # goes through upstream's own per-call stream, so many threads may solve at once.
         import threading
         from packingsolver3d import box
         results, errors = [], []
@@ -177,11 +178,11 @@ class TestConcurrency:
             except Exception as err:  # pragma: no cover - a failure here is the finding
                 errors.append(err)
 
-        threads = [threading.Thread(target=work) for _ in range(4)]
+        threads = [threading.Thread(target=work) for _ in range(16)]
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
         assert not errors
-        assert len(results) == 8
+        assert len(results) == 32
         assert set(results) == {1}

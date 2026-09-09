@@ -11,7 +11,6 @@
 
 #include <array>
 #include <cstdint>
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -78,37 +77,16 @@ std::array<Length, 3> placed_extents(const BoxT& box, int rotation)
     }
 }
 
-// Redirect std::cout / std::cerr into strings for the duration of a solve, so
-// the upstream log ends up in the RunRecord instead of on the caller's terminal.
-class CapturedStreams
-{
-public:
-    CapturedStreams():
-        out_(std::cout.rdbuf(out_buffer_.rdbuf())),
-        err_(std::cerr.rdbuf(err_buffer_.rdbuf())) { }
-
-    ~CapturedStreams()
-    {
-        std::cout.rdbuf(out_);
-        std::cerr.rdbuf(err_);
-    }
-
-    std::string out() const { return out_buffer_.str(); }
-    std::string err() const { return err_buffer_.str(); }
-
-private:
-    std::ostringstream out_buffer_;
-    std::ostringstream err_buffer_;
-    std::streambuf* out_;
-    std::streambuf* err_;
-};
-
 // Options shared by both solvers.  The LP backend is always set explicitly:
 // upstream defaults the name to CLP and the bundled build has only HiGHS.
+// Upstream's log goes to the per-call stream handed in here (its own
+// messages_streams hook) instead of std::cout: swapping the global stream
+// buffer is not thread-safe, and calls may run concurrently.
 template <typename Parameters>
-void fill_common_parameters(Parameters& parameters, const py::dict& options)
+void fill_common_parameters(Parameters& parameters, const py::dict& options, std::ostream& log)
 {
-    parameters.messages_to_stdout = true;
+    parameters.messages_to_stdout = false;
+    parameters.messages_streams.push_back(&log);
     parameters.verbosity_level = 0;
     read(options, "verbosity_level", parameters.verbosity_level);
 
@@ -213,12 +191,12 @@ py::dict describe_bin(const Instance& instance, BinTypeId bin_type_id, BinPos co
 }
 
 template <typename Output>
-py::dict describe_output(const Output& output, const CapturedStreams& streams)
+py::dict describe_output(const Output& output, const std::ostringstream& log)
 {
     py::dict result;
     result["output"] = output.to_json().dump();
-    result["stdout"] = streams.out();
-    result["stderr"] = streams.err();
+    result["stdout"] = log.str();
+    result["stderr"] = "";
     return result;
 }
 
@@ -236,8 +214,9 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     }
     box::Instance instance = builder.build();
 
+    std::ostringstream log;
     box::OptimizeParameters parameters;
-    fill_common_parameters(parameters, options);
+    fill_common_parameters(parameters, options, log);
     set_switch(parameters.use_tree_search, options, "use_tree_search");
     set_switch(parameters.use_tree_search_maximal_spaces, options, "use_tree_search_maximal_spaces");
     set_switch(parameters.use_sequential_single_knapsack, options, "use_sequential_single_knapsack");
@@ -246,7 +225,6 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     set_switch(parameters.use_dichotomic_search, options, "use_dichotomic_search");
     set_switch(parameters.use_dual_feasible_functions, options, "use_dual_feasible_functions");
 
-    CapturedStreams streams;
     box::Output output = [&]() {
         py::gil_scoped_release release;
         return box::optimize(instance, parameters);
@@ -277,7 +255,7 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
         bins.append(bin);
     }
 
-    py::dict result = describe_output(output, streams);
+    py::dict result = describe_output(output, log);
     result["bins"] = bins;
     return result;
 }
@@ -352,10 +330,10 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
     }
     boxstacks::Instance instance = builder.build();
 
+    std::ostringstream log;
     boxstacks::OptimizeParameters parameters;
-    fill_common_parameters(parameters, options);
+    fill_common_parameters(parameters, options, log);
 
-    CapturedStreams streams;
     boxstacks::Output output = [&]() {
         py::gil_scoped_release release;
         return boxstacks::optimize(instance, parameters);
@@ -401,7 +379,7 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
         bins.append(bin);
     }
 
-    py::dict result = describe_output(output, streams);
+    py::dict result = describe_output(output, log);
     result["bins"] = bins;
     return result;
 }
