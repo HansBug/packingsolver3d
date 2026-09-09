@@ -133,7 +133,6 @@ Open gate, to be resolved in M0 before the build configuration is frozen: whethe
 |  |- conftest.py
 |  |- config/test_meta.py
 |  |- test_model.py
-|  |- test_csv.py
 |  |- test_encode.py
 |  |- test_core.py
 |  |- test_solve.py

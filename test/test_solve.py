@@ -115,7 +115,7 @@ class TestSolveInstance:
     def test_upstream_rejection_is_typed(self, box_instance, monkeypatch):
         def reject(payload, options):
             raise ValueError('InstanceBuilder::build: item type 0 has copies_min > copies')
-        monkeypatch.setitem(_solve._SOLVERS, 'box', reject)
+        monkeypatch.setattr(_solve, '_solver', lambda problem_type: reject)
         with pytest.raises(InvalidInstanceError) as exc_info:
             _solve.solve_instance('box', box_instance, _solve.core_options())
         assert 'copies_min' in str(exc_info.value)
@@ -123,12 +123,30 @@ class TestSolveInstance:
     def test_upstream_failure_is_typed(self, box_instance, monkeypatch):
         def fail(payload, options):
             raise RuntimeError('ERROR, no linear programming solver found')
-        monkeypatch.setitem(_solve._SOLVERS, 'box', fail)
+        monkeypatch.setattr(_solve, '_solver', lambda problem_type: fail)
         with pytest.raises(SolverFailedError) as exc_info:
             _solve.solve_instance('box', box_instance, _solve.core_options())
         assert 'no linear programming solver' in str(exc_info.value)
         assert exc_info.value.run.problem_type == 'box'
         assert exc_info.value.run.options == _solve.core_options()
+
+    def test_unknown_problem_type(self, box_instance):
+        with pytest.raises(AttributeError):
+            _solve.solve_instance('rectangle', box_instance, _solve.core_options())
+
+    def test_missing_extension_message(self, monkeypatch):
+        import builtins
+        real_import = builtins.__import__
+
+        def no_core(name, globals=None, locals=None, fromlist=(), level=0):
+            if level and fromlist and '_core' in fromlist:
+                raise ImportError('No module named packingsolver3d._core')
+            return real_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, '__import__', no_core)
+        with pytest.raises(ImportError) as exc_info:
+            _solve._solver('box')
+        assert 'make build' in str(exc_info.value)
 
     def test_no_solution_when_nothing_is_mandatory(self):
         # copies_min=0 on every item under bin packing: zero bins is the optimum,

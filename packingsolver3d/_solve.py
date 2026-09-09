@@ -14,13 +14,6 @@ import math
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-try:
-    from . import _core
-except ImportError as err:  # the extension is missing for this interpreter, not a circular import
-    raise ImportError(
-        'packingsolver3d._core is not built for this interpreter ({err}); install a wheel or run '
-        '"make build" (needs CMake >= 3.28 and a C++17 compiler)'.format(err=err)
-    )
 from ._encode import instance_payload
 from .config.meta import __LP_SOLVER__
 from .errors import InvalidInstanceError, SolverFailedError
@@ -44,10 +37,29 @@ _OBJECTIVE_METRICS = {
     Objective.OPEN_DIMENSION_Z: ('ZMax', 'OpenDimensionZBound', -1),
 }
 
-_SOLVERS = {
-    'box': _core.box_solve,
-    'boxstacks': _core.boxstacks_solve,
-}
+
+
+def _solver(problem_type: str):
+    """
+    Resolve the native entry point for a problem type.
+
+    The extension is imported here rather than at package import time, so the
+    pure-Python surface (models, errors, documentation builds) stays importable
+    on an interpreter that has no compiled module; the first solve reports the
+    missing build instead.
+
+    :param problem_type: ``'box'`` or ``'boxstacks'``.
+    :return: The native ``<problem_type>_solve`` callable.
+    :raise ImportError: When the extension is not built for this interpreter.
+    """
+    try:
+        from . import _core
+    except ImportError as err:  # missing build for this interpreter, not a circular import
+        raise ImportError(
+            'packingsolver3d._core is not built for this interpreter ({err}); install a wheel or run '
+            '"make build" (needs CMake >= 3.28 and a C++17 compiler)'.format(err=err)
+        )
+    return getattr(_core, problem_type + '_solve')
 
 
 def _number(value) -> Optional[float]:
@@ -202,7 +214,7 @@ def solve_instance(
     payload = instance_payload(instance, unloading_constraint)
     started = time.time()
     try:
-        raw = _SOLVERS[problem_type](payload, options)
+        raw = _solver(problem_type)(payload, options)
     except ValueError as err:
         # std::invalid_argument from InstanceBuilder: the input is at fault.
         raise InvalidInstanceError('{problem_type}: {err}'.format(problem_type=problem_type, err=err))
