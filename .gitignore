@@ -7,6 +7,7 @@ wheelhouse/
 docs/build/
 coverage.xml
 .coverage-cpp.xml
+coverage-cpp.xml
 .coverage-merged.xml
 junit.xml
 *.gcda
