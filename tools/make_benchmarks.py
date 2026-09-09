@@ -1,8 +1,8 @@
 """
 Solve the benchmark cases with packingsolver3d, re-check every solution (ours
 and the third-party ones shipped in ``tools/benchmarks/third_party.json``) with
-an independent geometry validator, and render the leaderboards, the summary
-table and the gallery figures used by ``docs/source/benchmarks``.
+an independent geometry validator, and render the leaderboard pages (from
+``docs/source/benchmarks/leaderboards/index*.rst.in``) and the gallery figures used by ``docs/source/benchmarks``.
 
 The three benchmarks are small public instance families with a known or
 proven optimum for most cases: Egeblad & Pisinger 3D knapsack (20 items),
@@ -22,6 +22,7 @@ import csv
 import json
 import math
 import os
+import re
 import sys
 from collections import Counter, OrderedDict, defaultdict
 
@@ -31,55 +32,92 @@ from packingsolver3d.result import PackedBin, Placement, Result, Status
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, 'tools', 'benchmarks')
 UPSTREAM_DATA = os.path.join(ROOT, 'upstream', 'packingsolver', 'data', 'box')
-GENERATED_DIR = os.path.join(ROOT, 'docs', 'source', 'benchmarks', '_generated')
 FIGURE_DIR = os.path.join(ROOT, 'docs', 'source', '_static', 'benchmarks')
 OURS = 'packingsolver3d'
 TOLERANCE = 1e-6
 
-#: Display name, link and role of every participant; the order is the order of the roster.
+#: Every participant: display name, link, role and the bilingual roster facts.
+def _p(name, url, role, language, version, method, driven):
+    return dict(name=name, url=url, role=role, language=language, version=version, method=method, driven=driven)
+
+
+UN = 'https://github.com/iyulab/U-Nesting'
 PARTICIPANTS = OrderedDict([
-    (OURS, dict(name='packingsolver3d (PackingSolver box)', url='https://github.com/HansBug/packingsolver3d', role='participant')),
-    ('py3dbp', dict(name='py3dbp', url='https://github.com/enzoruiz/3dbinpacking', role='participant')),
-    ('jerry', dict(name='jerry800416/3D-bin-packing', url='https://github.com/jerry800416/3D-bin-packing', role='participant')),
-    ('go_bp3d', dict(name='gedex/bp3d', url='https://github.com/gedex/bp3d', role='participant')),
-    ('rust_extreme_point', dict(name='U-Nesting ExtremePoint', url='https://github.com/iyulab/U-Nesting', role='participant')),
-    ('rust_layer', dict(name='U-Nesting BottomLeftFill', url='https://github.com/iyulab/U-Nesting', role='participant')),
-    ('rust_ga', dict(name='U-Nesting GA', url='https://github.com/iyulab/U-Nesting', role='participant')),
-    ('rust_brkga', dict(name='U-Nesting BRKGA', url='https://github.com/iyulab/U-Nesting', role='participant')),
-    ('rust_sa', dict(name='U-Nesting SA', url='https://github.com/iyulab/U-Nesting', role='participant')),
-    ('cp_sat', dict(name='OR-Tools CP-SAT exact model', url='https://developers.google.com/optimization/cp/cp_solver', role='reference')),
-    ('mpv_official', dict(name='Martello-Pisinger-Vigo 3dbpp.c', url='http://hjemmesider.diku.dk/~pisinger/codes.html', role='reference')),
+    (OURS, _p('packingsolver3d (PackingSolver box)', 'https://github.com/HansBug/packingsolver3d', 'participant',
+              {'en': 'C++ core, Python API', 'zh': 'C++ 核心，Python API'}, 'upstream commit a7e53303',
+              {'en': 'anytime portfolio: iterative beam search on an insertion branching scheme, dual-feasible-function bounds; sequential single knapsack, sequential value correction, column generation and dichotomic search for several bins',
+               'zh': 'anytime 组合：插入分支方案上的迭代束搜索、对偶可行函数界；多箱时叠加顺序单背包、顺序价值修正、列生成与二分搜索'},
+              {'en': 'box.solve, time_limit=10.0, memory_limit=1024, default options', 'zh': 'box.solve，time_limit=10.0，memory_limit=1024，其余默认'})),
+    ('py3dbp', _p('py3dbp', 'https://github.com/enzoruiz/3dbinpacking', 'participant', {'en': 'Python', 'zh': 'Python'}, '1.1.2 (PyPI)',
+                  {'en': 'pivot-point greedy heuristic (Dube & Kanavathy): items by volume, first fitting pivot, six orientations tried', 'zh': '枢轴点贪心启发式（Dube 与 Kanavathy）：物品按体积排序，放到第一个可容纳的枢轴点，尝试六种朝向'},
+                  {'en': 'best of two item orders, distribute_items=True, always rotates', 'zh': '两种物品顺序取较好者，distribute_items=True，总是旋转'})),
+    ('jerry', _p('jerry800416/3D-bin-packing', 'https://github.com/jerry800416/3D-bin-packing', 'participant', {'en': 'Python', 'zh': 'Python'}, 'commit 75764a2',
+                 {'en': 'py3dbp fork: pivot-point greedy plus fix-point gravity drop, optional stability and load-bearing checks', 'zh': 'py3dbp 的 fork：枢轴点贪心加定点重力下落，可选稳定性与承重检查'},
+                 {'en': 'fix_point=True, check_stable=False, best of two item orders, always rotates', 'zh': 'fix_point=True，check_stable=False，两种顺序取较好者，总是旋转'})),
+    ('go_bp3d', _p('gedex/bp3d', 'https://github.com/gedex/bp3d', 'participant', {'en': 'Go', 'zh': 'Go'}, 'commit 0ba3dcd',
+                   {'en': 'Go port of the pivot-point greedy heuristic (after bom-d-van/binpacking), float64 geometry', 'zh': '枢轴点贪心启发式的 Go 移植（源自 bom-d-van/binpacking），float64 几何'},
+                   {'en': 'one greedy pass, cannot fix the orientation', 'zh': '一次贪心遍历，无法固定朝向'})),
+    ('rust_extreme_point', _p('U-Nesting ExtremePoint', UN, 'participant', {'en': 'Rust', 'zh': 'Rust'}, '0.9.0, commit 8cde85b',
+                              {'en': 'extreme-point constructive heuristic (Crainic, Perboli & Tadei style)', 'zh': '极点构造式启发式（Crainic、Perboli 与 Tadei 思路）'},
+                              {'en': 'single-container API repeated per bin, fixed pose honoured', 'zh': '单容器 API 逐箱重复调用，遵守固定姿态'})),
+    ('rust_layer', _p('U-Nesting BottomLeftFill', UN, 'participant', {'en': 'Rust', 'zh': 'Rust'}, '0.9.0, commit 8cde85b',
+                      {'en': 'layer-building bottom-left-fill constructive heuristic', 'zh': '分层构建的左下填充构造式启发式'},
+                      {'en': 'single-container API repeated per bin, fixed pose honoured', 'zh': '单容器 API 逐箱重复调用，遵守固定姿态'})),
+    ('rust_ga', _p('U-Nesting GA', UN, 'participant', {'en': 'Rust', 'zh': 'Rust'}, '0.9.0, commit 8cde85b',
+                   {'en': 'genetic algorithm over item sequences, constructive decoder', 'zh': '作用于物品序列的遗传算法，构造式解码'},
+                   {'en': 'single-container API repeated per bin, 10 s per call, fixed pose honoured', 'zh': '单容器 API 逐箱重复调用，每次 10 s，遵守固定姿态'})),
+    ('rust_brkga', _p('U-Nesting BRKGA', UN, 'participant', {'en': 'Rust', 'zh': 'Rust'}, '0.9.0, commit 8cde85b',
+                      {'en': 'biased random-key genetic algorithm over item sequences', 'zh': '作用于物品序列的偏置随机键遗传算法'},
+                      {'en': 'single-container API repeated per bin, 10 s per call, fixed pose honoured', 'zh': '单容器 API 逐箱重复调用，每次 10 s，遵守固定姿态'})),
+    ('rust_sa', _p('U-Nesting SA', UN, 'participant', {'en': 'Rust', 'zh': 'Rust'}, '0.9.0, commit 8cde85b',
+                   {'en': 'simulated annealing over item sequences', 'zh': '作用于物品序列的模拟退火'},
+                   {'en': 'single-container API repeated per bin, 10 s per call, fixed pose honoured', 'zh': '单容器 API 逐箱重复调用，每次 10 s，遵守固定姿态'})),
+    ('cp_sat', _p('OR-Tools CP-SAT exact model', 'https://developers.google.com/optimization/cp/cp_solver', 'reference',
+                  {'en': 'C++ core, Python API', 'zh': 'C++ 核心，Python API'}, 'OR-Tools 9.15',
+                  {'en': 'exact constraint-programming model of the fixed-pose 3D knapsack: optional intervals per axis, pairwise non-overlap, maximise profit', 'zh': '固定姿态三维背包的精确约束规划模型：每轴可选区间、两两不重叠、最大化利润'},
+                  {'en': '20 s, one thread, 4 GiB; OPTIMAL status is the proof used in the bound row', 'zh': '20 s、单线程、4 GiB；OPTIMAL 状态即理论界一行采用的证明'})),
+    ('mpv_official', _p('Martello-Pisinger-Vigo 3dbpp.c', 'http://hjemmesider.diku.dk/~pisinger/codes.html', 'reference', {'en': 'C', 'zh': 'C'}, 'new3dbpp general-packing code',
+                        {'en': 'branch-and-bound over bin assignments with an exact one-bin routine and lower bounds', 'zh': '对箱分配的分支定界，带单箱精确子程序与下界'},
+                        {'en': '1 s, one thread, generator default parameters; reports a lower and an upper bound', 'zh': '1 s、单线程、生成器默认参数；报告下界与上界'})),
 ])
 
 BENCHMARKS = OrderedDict([
     ('ep3d', dict(
         title='Egeblad-Pisinger 3D knapsack, 20 items, one bin', sense='max', unit='profit', fixed_pose=True,
-        cases=['ep3d-20-%s-%s-50' % (a, b) for a in 'CDFLU' for b in 'CR'],
-        label=lambda case: case[8:11])),
+        cases=['ep3d-20-%s-%s-%d' % (a, b, r) for a in 'CDFLU' for b in 'CR' for r in (50, 90)],
+        label=lambda case: case[8:])),
     ('mpv_t9', dict(
-        title='Martello-Pisinger-Vigo generator class 9, 30 items', sense='min', unit='bins', fixed_pose=True,
-        cases=['MPV-GEN-T9-N30-R%02d' % k for k in range(1, 11)],
-        label=lambda case: case[-3:])),
+        title='Martello-Pisinger-Vigo generator class 9, 30 to 90 items', sense='min', unit='bins', fixed_pose=True,
+        cases=['MPV-GEN-T9-N%d-R%02d' % (n, k) for n in (30, 60, 90) for k in range(1, 11)],
+        label=lambda case: case[11:])),
     ('imm', dict(
-        title='Ivancic-Mathur-Mohanty THPACK9, eight instances', sense='min', unit='bins', fixed_pose=False,
-        cases=['IMM-%02d' % k for k in (1, 18, 19, 20, 24, 25, 26, 46)],
+        title='Ivancic-Mathur-Mohanty THPACK9, all 47 instances', sense='min', unit='bins', fixed_pose=False,
+        cases=['IMM-%02d' % k for k in range(1, 48)],
         label=lambda case: case[4:])),
 ])
 
-#: Gallery: (benchmark, case, participants drawn side by side).
+#: Gallery: (benchmark, case, participants drawn side by side); duplicates of an identical packing are left out.
 GALLERY = [
-    ('ep3d', 'ep3d-20-C-C-50', [OURS, 'rust_sa', 'py3dbp']),
-    ('mpv_t9', 'MPV-GEN-T9-N30-R01', [OURS, 'py3dbp', 'rust_layer']),
-    ('imm', 'IMM-26', [OURS, 'py3dbp', 'rust_sa']),
+    ('ep3d', 'ep3d-20-C-C-50', [OURS, 'cp_sat', 'rust_sa', 'rust_ga', 'rust_layer', 'py3dbp']),
+    ('mpv_t9', 'MPV-GEN-T9-N30-R01', [OURS, 'py3dbp', 'rust_extreme_point', 'go_bp3d', 'rust_sa', 'rust_layer']),
+    ('imm', 'IMM-26', [OURS, 'py3dbp', 'go_bp3d', 'rust_extreme_point', 'rust_sa']),
 ]
 
 TEXT = {
     'en': dict(participant='Participant', total='Total', bound='Bound (gap)', bound_row='Theoretical bound', relaxed='rotation relaxed',
-               reference='reference', invalid='invalid', missing='n/a', valid_of='%d/%d valid', benchmark='Benchmark',
-               summary_caption='Totals over all cases of each benchmark; a gap of 0 means every case reached the bound.'),
+               reference='reference', invalid='invalid', missing='n/a', valid_of='%d/%d valid', language='Language', version='Version tested',
+               method='Method', driven='Driven as / budget', role='Role', variant='Variant: knapsack / class 9 / THPACK9', fixed='fixed', any='all rotations',
+               case='Case', bin='Bin (x y z)', items='Items (types)', ratio='Item volume / bin volume', bound_source='Bound source', ours_status='packingsolver3d status, time',
+               items_of='items placed of %d', time='time (s)', proof_cpsat='CP-SAT proof (20 s)', proof_closed='PackingSolver bound, closed', proof_open='PackingSolver bound, open',
+               proof_construction='construction: three bins cut', proof_volume='volume bound', proof_ps_bound='PackingSolver bound (volume bound %d)',
+               role_participant='participant', role_reference='reference', summary_title='Total / bound (gap)'),
     'zh': dict(participant='参与者', total='总计', bound='理论界（差距）', bound_row='理论界', relaxed='放松旋转约束',
-               reference='参照', invalid='非法解', missing='无', valid_of='%d/%d 合法', benchmark='基准',
-               summary_caption='每个基准所有 case 的总计；差距为 0 表示每个 case 都达到了理论界。'),
+               reference='参照', invalid='非法解', missing='无', valid_of='%d/%d 合法', language='语言', version='测试版本',
+               method='方法', driven='驱动方式 / 预算', role='角色', variant='变体：背包 / 第 9 类 / THPACK9', fixed='固定姿态', any='全部旋转',
+               case='Case', bin='箱子（x y z）', items='物品数（种类）', ratio='物品体积 / 箱子体积', bound_source='界的来源', ours_status='packingsolver3d 状态、用时',
+               items_of='装入件数（共 %d）', time='用时（s）', proof_cpsat='CP-SAT 证明（20 s）', proof_closed='PackingSolver 界，已收口', proof_open='PackingSolver 界，未收口',
+               proof_construction='构造：三箱切割', proof_volume='体积界', proof_ps_bound='PackingSolver 界（体积界 %d）',
+               role_participant='参与者', role_reference='参照', summary_title='总计 / 理论界（差距）'),
 }
 
 
@@ -227,7 +265,8 @@ def evaluate(entries):
         instance, profits, pose = cache[key]
         spec = BENCHMARKS[entry['benchmark']]
         cell = dict(participant=entry['participant'], pose=entry['pose'], relaxed=(spec['fixed_pose'] and entry['pose'] != 'fixed'),
-                    bound=entry.get('bound'), proof=entry.get('proof'), elapsed=entry.get('elapsed_s', entry.get('solve_time')))
+                    bound=entry.get('bound'), proof=entry.get('proof'), status=entry.get('status'),
+                    elapsed=entry.get('elapsed_s', entry.get('solve_time')))
         if entry.get('placements') is None:
             cell.update(value=entry.get('bins'), valid=entry.get('bins') is not None, errors=[], items=None)
         else:
@@ -258,15 +297,19 @@ def fmt(value, unit):
     return '{:,}'.format(int(round(value)))
 
 
+def link(participant):
+    meta = PARTICIPANTS[participant]
+    return '`%s <%s>`__' % (meta['name'], meta['url'])
+
+
 def leaderboard(benchmark, cells, cache, lang):
-    """Rows of the leaderboard of one benchmark: ``[[participant cell, total, bound(gap), per case...], ...]``."""
+    """Rows of the leaderboard of one benchmark: ``(participant, [name, total, bound(gap), per case...])``."""
     spec, text = BENCHMARKS[benchmark], TEXT[lang]
     cases = spec['cases']
     bounds = [case_bound(benchmark, case, cells[(benchmark, case)], cache) for case in cases]
     bound_total = sum(b for b in bounds if b is not None) if all(b is not None for b in bounds) else None
     rows = []
-    participants = [p for p in PARTICIPANTS if any(p in cells[(benchmark, case)] for case in cases)]
-    for participant in participants:
+    for participant in participants_of(benchmark, cells):
         values, marks = [], []
         for case, bound in zip(cases, bounds):
             cell = cells[(benchmark, case)].get(participant)
@@ -292,21 +335,114 @@ def leaderboard(benchmark, cells, cache, lang):
         else:
             gap = '+%d' % (total - bound_total) if total != bound_total else '0'
             sort_key = (0, total)
-        meta = PARTICIPANTS[participant]
-        name = '`%s <%s>`__' % (meta['name'], meta['url'])
-        notes = []
-        if any(cells[(benchmark, case)].get(participant, {}).get('relaxed') for case in cases):
-            notes.append(text['relaxed'])
-        if meta['role'] == 'reference':
-            notes.append(text['reference'])
-        if notes:
-            name += ' (%s)' % ', '.join(notes)
+        name = link(participant) + notes_for(benchmark, participant, cells, lang)
         rows.append((sort_key, participant, [name, fmt(total, spec['unit']) if total is not None else text['missing'],
                                              '%s (%s)' % (fmt(bound_total, spec['unit']), gap) if bound_total is not None else '', *marks]))
     rows.sort(key=lambda r: r[0])
     header = [text['participant'], text['total'], text['bound']] + [spec['label'](case) for case in cases]
     bound_row = [text['bound_row'], fmt(bound_total, spec['unit']), ''] + [fmt(b, spec['unit']) for b in bounds]
     return header, bound_row, [(r[1], r[2]) for r in rows], bound_total
+
+
+def participants_of(benchmark, cells):
+    return [p for p in PARTICIPANTS if any(p in cells[(benchmark, case)] for case in BENCHMARKS[benchmark]['cases'])]
+
+
+def notes_for(benchmark, participant, cells, lang):
+    text, notes = TEXT[lang], []
+    if any(cells[(benchmark, case)].get(participant, {}).get('relaxed') for case in BENCHMARKS[benchmark]['cases']):
+        notes.append(text['relaxed'])
+    if PARTICIPANTS[participant]['role'] == 'reference':
+        notes.append(text['reference'])
+    return ' (%s)' % ', '.join(notes) if notes else ''
+
+
+def ranking_order(benchmark, cells, cache, lang):
+    """Participants of a benchmark in leaderboard order, so every table of a benchmark lists them the same way."""
+    _, _, rows, _ = leaderboard(benchmark, cells, cache, lang)
+    return [participant for participant, _ in rows]
+
+
+def facts_table(benchmark, cells, cache, lang):
+    """Per case: bin, items, volume ratio, bound and where it comes from, and our status."""
+    spec, text = BENCHMARKS[benchmark], TEXT[lang]
+    rows = []
+    for case in spec['cases']:
+        instance, _, _ = cache[(benchmark, case)]
+        bin_type, per = instance.bin_types[0], cells[(benchmark, case)]
+        n_items = sum(i.copies for i in instance.item_types)
+        volume = sum(i.x * i.y * i.z * i.copies for i in instance.item_types)
+        bin_volume = bin_type.x * bin_type.y * bin_type.z
+        bound = case_bound(benchmark, case, per, cache)
+        ours, cp = per.get(OURS, {}), per.get('cp_sat')
+        if spec['sense'] == 'max':
+            source = text['proof_cpsat'] if cp and cp.get('proof') == 'optimal' else (text['proof_closed'] if ours.get('status') == 'optimal' else text['proof_open'])
+        elif benchmark == 'mpv_t9':
+            source = text['proof_construction']
+        else:
+            volume_bound = int(math.ceil(volume / float(bin_volume) - TOLERANCE))
+            source = text['proof_ps_bound'] % volume_bound if bound > volume_bound else text['proof_volume']
+        status = '%s, %.1f s' % (ours.get('status', text['missing']), ours.get('elapsed') or 0.0) if ours else text['missing']
+        rows.append([case, '%d x %d x %d' % (bin_type.x, bin_type.y, bin_type.z), '%d (%d)' % (n_items, len(instance.item_types)),
+                     '%.2f' % (volume / float(bin_volume)), fmt(bound, spec['unit']), source, status])
+    header = [text['case'], text['bin'], text['items'], text['ratio'], text['bound_row'], text['bound_source'], text['ours_status']]
+    return list_table(header, rows)
+
+
+def per_case_table(benchmark, cells, cache, lang, field):
+    """One row per participant, one column per case, showing ``items`` placed or ``time`` in seconds."""
+    spec, text = BENCHMARKS[benchmark], TEXT[lang]
+    rows = []
+    for participant in ranking_order(benchmark, cells, cache, lang):
+        row = [link(participant) + notes_for(benchmark, participant, cells, lang)]
+        for case in spec['cases']:
+            cell = cells[(benchmark, case)].get(participant)
+            if cell is None:
+                row.append(text['missing'])
+            elif field == 'items':
+                row.append(text['invalid'] if not cell['valid'] else ('%d' % cell['items'] if cell['items'] is not None else text['missing']))
+            else:
+                elapsed = cell.get('elapsed')
+                row.append(text['missing'] if elapsed is None else ('%.2f' % elapsed if elapsed < 1 else '%.1f' % elapsed))
+        rows.append(row)
+    n_items = sum(i.copies for i in cache[(benchmark, spec['cases'][0])][0].item_types)
+    label = (text['items_of'] % n_items) if field == 'items' else text['time']
+    header = ['%s (%s)' % (text['participant'], label)] + [spec['label'](case) for case in spec['cases']]
+    return list_table(header, rows)
+
+
+def roster_table(cells, lang):
+    """Every participant with language, version, method, how it was driven, its variant per benchmark and role."""
+    text = TEXT[lang]
+    rows = []
+    for participant, meta in PARTICIPANTS.items():
+        variants = []
+        for benchmark, spec in BENCHMARKS.items():
+            present = [cells[(benchmark, case)].get(participant) for case in spec['cases']]
+            present = [c for c in present if c]
+            if not present:
+                variants.append('-')
+            elif any(c['relaxed'] for c in present):
+                variants.append(text['relaxed'])
+            else:
+                variants.append(text['fixed'] if spec['fixed_pose'] else text['any'])
+        rows.append([link(participant), meta['language'][lang], meta['version'], meta['method'][lang], meta['driven'][lang],
+                     ' / '.join(variants), text['role_' + meta['role']]])
+    header = [text['participant'], text['language'], text['version'], text['method'], text['driven'], text['variant'], text['role']]
+    return list_table(header, rows, widths=[16, 8, 10, 26, 20, 12, 8])
+
+
+def summary_table(cells, cache, lang):
+    text = TEXT[lang]
+    per_participant = {}
+    for benchmark in BENCHMARKS:
+        _, _, rows, _ = leaderboard(benchmark, cells, cache, lang)
+        for participant, row in rows:
+            per_participant.setdefault(participant, {})[benchmark] = (row[1], row[2])
+    header = [text['participant']] + ['%s: %s' % (BENCHMARKS[b]['title'].split(',')[0], text['summary_title']) for b in BENCHMARKS]
+    rows = [[link(p)] + [('%s / %s' % per_participant[p][b]) if b in per_participant[p] else text['missing'] for b in BENCHMARKS]
+            for p in PARTICIPANTS if p in per_participant]
+    return list_table(header, rows)
 
 
 def list_table(header, rows, caption=None, widths=None):
@@ -321,29 +457,34 @@ def list_table(header, rows, caption=None, widths=None):
     return '\n'.join(lines)
 
 
-def render_tables(cells, cache, lang):
-    """Write the per-benchmark leaderboards and the summary table for one language."""
-    summary_rows = {}
-    for benchmark, spec in BENCHMARKS.items():
-        header, bound_row, rows, bound_total = leaderboard(benchmark, cells, cache, lang)
-        path = os.path.join(GENERATED_DIR, '%s_%s.rst' % (benchmark, lang))
+def render_pages(cells, cache):
+    """Fill the leaderboard page templates (``index.rst.in`` / ``index_zh.rst.in``) with the generated tables."""
+    directory = os.path.join(ROOT, 'docs', 'source', 'benchmarks', 'leaderboards')
+    for lang, name in (('en', 'index'), ('zh', 'index_zh')):
+        tables = {'roster': roster_table(cells, lang), 'summary': summary_table(cells, cache, lang)}
+        for benchmark in BENCHMARKS:
+            header, bound_row, rows, _ = leaderboard(benchmark, cells, cache, lang)
+            tables[benchmark + '.leaderboard'] = list_table(header, [bound_row] + [row for _, row in rows])
+            tables[benchmark + '.facts'] = facts_table(benchmark, cells, cache, lang)
+            tables[benchmark + '.times'] = per_case_table(benchmark, cells, cache, lang, 'time')
+            if BENCHMARKS[benchmark]['sense'] == 'max':
+                tables[benchmark + '.items'] = per_case_table(benchmark, cells, cache, lang, 'items')
+        with open(os.path.join(directory, name + '.rst.in')) as handle:
+            template = handle.read()
+        used = set()
+
+        def substitute(match):
+            key = match.group(1).strip()
+            used.add(key)
+            return tables[key]
+        page = re.sub(r'^\.\. TABLE:: (.+)$', substitute, template, flags=re.M)
+        missing = set(tables) - used
+        if missing:
+            raise RuntimeError('%s template does not place these tables: %s' % (name, sorted(missing)))
+        path = os.path.join(directory, name + '.rst')
         with open(path, 'w') as handle:
-            handle.write(list_table(header, [bound_row] + [row for _, row in rows]))
+            handle.write('.. Generated by tools/make_benchmarks.py from %s.rst.in -- edit the template, not this file.\n\n' % name + page)
         print('wrote', path, flush=True)
-        for participant, row in rows:
-            summary_rows.setdefault(participant, {})[benchmark] = (row[1], row[2])
-    text = TEXT[lang]
-    header = [text['participant']] + ['%s: %s / %s' % (BENCHMARKS[b]['title'].split(',')[0], text['total'], text['bound']) for b in BENCHMARKS]
-    rows = []
-    for participant in PARTICIPANTS:
-        per = summary_rows.get(participant)
-        if per:
-            meta = PARTICIPANTS[participant]
-            rows.append(['`%s <%s>`__' % (meta['name'], meta['url'])] + [('%s / %s' % per[b]) if b in per else text['missing'] for b in BENCHMARKS])
-    path = os.path.join(GENERATED_DIR, 'summary_%s.rst' % lang)
-    with open(path, 'w') as handle:
-        handle.write(list_table(header, rows))
-    print('wrote', path, flush=True)
 
 
 # --------------------------------------------------------------------------- figures
@@ -363,7 +504,9 @@ def render_figures(entries, cells, cache, no_png, width, height):
             meta = PARTICIPANTS[participant]
             what = ('profit {:,}'.format(int(cell['value'])) + ', %d of %d items' % (cell['items'], sum(i.copies for i in instance.item_types))
                     if spec['sense'] == 'max' else '%d bins, %d items' % (cell['value'], cell['items']))
-            suffix = ' (rotation relaxed)' if cell['relaxed'] else (' (proven optimal)' if participant == OURS and entry.get('status') == 'optimal' else '')
+            bound = case_bound(benchmark, case, cells[(benchmark, case)], cache)
+            proven = bound is not None and not cell['relaxed'] and abs(cell['value'] - bound) < 0.5
+            suffix = ' (rotation relaxed)' if cell['relaxed'] else (' (proven optimum)' if proven else '')
             figure = plot_result(result, show_ids=cell['items'] <= 60, title='%s: %s, %s%s' % (meta['name'], case, what, suffix))
             name = '%s__%s__%s' % (benchmark, case, participant)
             html = os.path.join(FIGURE_DIR, name + '.html')
@@ -371,7 +514,7 @@ def render_figures(entries, cells, cache, no_png, width, height):
             print('wrote', html, os.path.getsize(html), 'bytes', flush=True)
             if not no_png:
                 png = os.path.join(FIGURE_DIR, name + '.png')
-                figure.write_image(png, width=width, height=height, scale=2)
+                figure.write_image(png, width=width, height=height, scale=1)
                 print('wrote', png, os.path.getsize(png), 'bytes', flush=True)
 
 
@@ -406,10 +549,8 @@ def main(argv=None):
     if args.render:
         entries = load_entries()
         cells, cache = evaluate(entries)
-        os.makedirs(GENERATED_DIR, exist_ok=True)
         os.makedirs(FIGURE_DIR, exist_ok=True)
-        for lang in ('en', 'zh'):
-            render_tables(cells, cache, lang)
+        render_pages(cells, cache)
         render_figures(entries, cells, cache, args.no_png, args.width, args.height)
     return 0
 

@@ -23,7 +23,7 @@ No participant's own objective value is used. Every solution, ours included, is 
 * the extents of every box are a rotation of its item type, and the *exact* orientation where the variant fixes it,
 * all items are placed when the objective is to minimise bins.
 
-A solution that fails any check is shown as ``invalid`` and the participant's total for that benchmark becomes ``n/a`` with the count of valid cases. This is how the four U-Nesting metaheuristics lose their IMM total: on instance 1 their placements stick out of the 10 x 6 x 16 container.
+A solution that fails any check is shown as ``invalid`` and the participant's total for that benchmark becomes ``n/a`` with the count of valid cases. This is how the four U-Nesting metaheuristics lose their THPACK9 total: on seven to nine of the 47 instances their placements stick out of the container.
 
 Bounds, stars, totals and gaps
 ------------------------------
@@ -49,5 +49,5 @@ Caveats
 * **Scope, not quality of engineering.** py3dbp, its Go and fork variants and U-Nesting's greedy strategies are designed to load a container in milliseconds with simple rules; PackingSolver is an anytime optimisation solver that spends its whole budget. The tables measure what each returns under the stated budget on these instances, nothing more.
 * **Small, constraint-free instances.** No weights, stability, stacking or unloading constraints are used; several of the libraries support such constraints and PackingSolver's ``box`` solver does not.
 * **Single run, single machine.** Metaheuristics and upstream's anytime search vary between runs; the proven-optimal cells are stable, the others may move by a few units.
-* **Threads.** PackingSolver used several cores on the knapsack cases while the other libraries ran on one. On the two bin packing families its solves finished in about one second, so the difference does not explain the gap there.
+* **Threads.** PackingSolver used several cores on the knapsack cases while the other libraries ran on one. On the 30-item class-9 replicates and on 31 THPACK9 instances its solves finished in about one second with a closed proof, so the difference does not explain the gap there; on the larger cases it used the full 10 s like the metaheuristics.
 * **Third-party data ships with the docs.** The third-party placements live in ``tools/benchmarks/third_party.json`` with library version, algorithm label and budget per entry. They were produced by the maintainers with each library's public release or commit through thin adapters that are not part of this repository; what *is* reproducible from this repository is the independent re-validation of every stored placement and every number derived from it.

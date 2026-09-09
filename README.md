@@ -43,22 +43,22 @@ The figures are real solves drawn with `packingsolver3d.visual` (optional depend
 
 ## Benchmarks
 
-A small, reproducible capability study is part of the documentation: three public instance families with proven or constructive optima (Egeblad-Pisinger 3D knapsack with 20 items, the Martello-Pisinger-Vigo generator's class 9 with 30 items cut from exactly three bins, and eight Ivancic-Mathur-Mohanty THPACK9 loading instances), run through `box.solve` with a 10 s time limit next to py3dbp, jerry800416/3D-bin-packing, gedex/bp3d, the five 3D strategies of U-Nesting, an exact CP-SAT model and the Martello-Pisinger-Vigo branch-and-bound as references. Every solution, ours and third-party, is re-validated by an independent geometry checker and every objective is recomputed from the placements. Totals over all cases, lower gap is better:
+A reproducible capability study is part of the documentation: 97 cases from three public instance families with known or proven optima (all twenty 20-item Egeblad-Pisinger 3D knapsack instances, thirty Martello-Pisinger-Vigo generator class-9 instances of 30, 60 and 90 items cut from exactly three bins, and all 47 Ivancic-Mathur-Mohanty THPACK9 loading instances), run through `box.solve` with a 10 s time limit next to py3dbp, jerry800416/3D-bin-packing, gedex/bp3d, the five 3D strategies of U-Nesting, an exact CP-SAT model and the Martello-Pisinger-Vigo branch-and-bound as references. Every solution, ours and third-party, is re-validated by an independent geometry checker and every objective is recomputed from the placements. Totals over all cases; a smaller gap is better:
 
-| Participant | EP 3D knapsack, profit (gap to proven optimum) | MPV class 9, bins (optimum 30) | THPACK9, containers (bound 49) |
+| Participant | EP 3D knapsack, 20 cases: profit (gap to bound) | MPV class 9, 30 cases: bins (bound 90) | THPACK9, 47 cases: containers (bound 655) |
 |---|---|---|---|
-| packingsolver3d (PackingSolver `box`) | 15,181,510 (0, all ten proven optimal) | 30 (all ten proven optimal) | 50 (+1, seven of eight proven optimal) |
-| py3dbp / jerry800416, rotation relaxed on the first two | 13,752,808 (-9.4%) | 41 (+11) | 79 (+30) |
-| gedex/bp3d, rotation relaxed on the first two | 13,352,723 (-12.0%) | 46 (+16) | 81 (+32) |
-| U-Nesting SA / ExtremePoint (best of five strategies) | 13,627,093 (-10.2%) | 42 (+12) | 79 (+30) |
-| OR-Tools CP-SAT exact model (reference, 20 s) | 15,181,510 (0) | - | - |
-| Martello-Pisinger-Vigo 3dbpp.c (reference, 1 s) | - | 40 (+10) | - |
+| packingsolver3d (PackingSolver `box`) | 42,650,877 (-3.4%, all 16 proven optima reached) | 109 (+19, all ten 30-item cuts proven) | 689 (+34, 31 proven) |
+| OR-Tools CP-SAT exact model (reference, 20 s) | 42,808,814 (-3.0%, 13 proofs) | - | - |
+| jerry800416 / py3dbp, rotation relaxed on the first two | 41,234,099 / 40,933,828 (-6.6% / -7.2%) | 125 (+35) | 822 (+167) |
+| gedex/bp3d, rotation relaxed on the first two | 39,480,331 (-10.5%) | 155 (+65) | 890 (+235) |
+| U-Nesting, best of five strategies | 37,233,229 (-15.6%, SA) | 139 (+49, ExtremePoint) | 821 (+166, ExtremePoint) |
+| Martello-Pisinger-Vigo 3dbpp.c (reference, 1 s) | - | 168 (+78) | - |
 
 | packingsolver3d: three bins, proven optimal | py3dbp: four bins, rotation relaxed |
 |---|---|
-| ![ours on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__packingsolver3d.png) | ![py3dbp on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__py3dbp.png) |
+| [![ours on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__packingsolver3d.png)](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/gallery/index.html) | [![py3dbp on MPV class 9](https://raw.githubusercontent.com/HansBug/packingsolver3d/main/docs/source/_static/benchmarks/mpv_t9__MPV-GEN-T9-N30-R01__py3dbp.png)](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/gallery/index.html) |
 
-The instances are small and constraint-free, each number is a single run, and the greedy libraries were designed for speed rather than optimality, so this is a capability study, not a ranking of packing software. Sources, versions, the protocol, the full per-case leaderboards and the side-by-side gallery are in the [benchmark section of the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/index.html); `make benchmarks` regenerates everything from `tools/make_benchmarks.py`.
+The pictures above are static previews because GitHub cannot run plotly; the [gallery in the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/gallery/index.html) has the same scenes as rotatable, zoomable figures for our solution and four or five other participants on one case of each benchmark. The instances are small and constraint-free, each number is a single run, and the greedy libraries were designed for speed rather than optimality, so this is a capability study, not a ranking of packing software. Sources, versions, the protocol, the [complete per-case tables](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/leaderboards/index.html) (roster, cases and bounds, leaderboards, items placed, times) and the gallery are in the [benchmark section of the documentation](https://packingsolver3d.readthedocs.io/en/latest/benchmarks/index.html); `make benchmarks` regenerates everything from `tools/make_benchmarks.py`.
 
 ## Installation
 

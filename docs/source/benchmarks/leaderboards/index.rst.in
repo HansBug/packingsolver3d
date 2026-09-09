@@ -1,0 +1,93 @@
+Leaderboards and full results
+=============================
+
+This page holds every number of the study: 97 cases, eleven participants, all in the same tables. Each benchmark gets four tables: the **cases** (what each instance is, what the best available bound is and where that bound comes from), the **leaderboard** (one row per participant, sorted by total, one column per case), the **items placed** per case where the objective is profit, and the **time** each participant spent per case. The participant roster and a cross-benchmark summary come first. The rules behind every cell are on :doc:`../protocol/index`; the participants are described in depth on :doc:`../participants/index`; the drawings are in :doc:`../gallery/index`.
+
+How to read a leaderboard
+-------------------------
+
+* **Column 1** names the participant and links to its project. A suffix "(rotation relaxed)" means the participant could not keep the fixed orientation of that benchmark and solved a relaxed problem; "(reference)" marks an exact code run at its own budget to certify optima.
+* **Column 2** is the total over all cases and orders the rows: packed profit for the knapsack family (higher is better), bins for the two bin packing families (lower is better). A participant with any missing or invalid case gets ``n/a`` and sorts last.
+* **Column 3** repeats the theoretical bound total and gives the gap to it in parentheses: a percentage for profit, a bin count for bins. ``0`` would mean every case reached the bound.
+* **Columns 4 onward** are the cases. ``*`` after a value means it equals the best available bound for that case, that is a **proven optimum**; only participants that solved the same variant can earn it. ``invalid`` means the placements failed the independent geometry check.
+* The first data row, **Theoretical bound**, is not a participant: it lists the best bound per case, whose origin is given in the cases table of each benchmark. A bound that no participant reached is still a bound, not a known optimum.
+
+Participants at a glance
+------------------------
+
+All eleven participants, the version that ran, how each was driven, and which variant it solved on each of the three benchmarks. "fixed" means the orientation of every item was kept, "all rotations" means the benchmark allows every orientation for everybody, "rotation relaxed" means the participant rotated freely on a fixed-orientation benchmark.
+
+.. TABLE:: roster
+
+Summary across benchmarks
+-------------------------
+
+Totals per benchmark with the bound total and the gap. packingsolver3d reaches every proven knapsack optimum (sixteen of the twenty cases are proven; the four open ones are all ratio-90 cases) and ends 3.4 percent below the bound total, next to the exact CP-SAT reference at 3.0 percent; it proves all ten 30-item class-9 replicates and stays within one bin of the construction on the 60- and 90-item ones; on THPACK9 it proves 31 of the 47 instances and is 34 containers over the bound total, where every heuristic is at least 166 over. The heuristics that could not keep the orientation are marked as relaxed on the two fixed-pose benchmarks.
+
+.. TABLE:: summary
+
+Egeblad-Pisinger 3D knapsack, twenty items
+------------------------------------------
+
+**What the instances test.** One container, twenty items with profit equal to volume plus 200, fixed orientation. At ratio 50 the container holds half of the total item volume, so choosing *which* items to pack matters as much as placing them: the constant makes fourteen small items worth more than six large ones of the same volume, and a heuristic that fills the container with the largest pieces first leaves profit on the table even when its packing is tight. At ratio 90 the container holds ninety percent of the item volume, almost everything should fit, and the difficulty moves to the placement itself. The five shape classes vary the geometry from cubes (``C``) to near-cubic (``D``), flat (``F``), long (``L``) and mixed (``U``) boxes.
+
+**Cases.** Sixteen of the twenty optima are proven: thirteen by the CP-SAT reference, whose ``OPTIMAL`` status is a proof, and six by PackingSolver's own bound meeting its incumbent (three of those are also CP-SAT proofs). On the four remaining cases, all at ratio 90 (``D-C-90``, ``D-R-90``, ``F-R-90``, ``L-C-90``), neither code closed the gap within its budget and the bound row shows PackingSolver's open bound. The last column is the status packingsolver3d itself reported and how long it ran.
+
+.. TABLE:: ep3d.facts
+
+**Leaderboard.**
+
+.. TABLE:: ep3d.leaderboard
+
+**Items placed.** The same packings counted in items rather than profit. At ratio 50 the greedy libraries place four to six large items where the optimum places nine to seventeen; at ratio 90 everybody places most of the twenty and the profit differences come from the last two or three items.
+
+.. TABLE:: ep3d.items
+
+**Time.** packingsolver3d stops early when its bound meets its incumbent and otherwise uses the whole 10 s; the greedy libraries finish in milliseconds; the U-Nesting metaheuristics ran with the 10 s budget; CP-SAT is shown with its own solver time under a 20 s limit.
+
+.. TABLE:: ep3d.times
+
+**Reading the results.** packingsolver3d reaches the proven optimum on all sixteen proven cases and totals 42,650,877, 3.4 percent below the bound total; the exact CP-SAT reference totals 42,808,814, 3.0 percent below, and the whole difference between the two is one case, ``D-R-90``, where CP-SAT's incumbent after 20 s (6,218,886) is above PackingSolver's after 10 s (6,060,949) and neither is proven. On six cases (``D-C-50``, ``F-C-50``, ``F-C-90``, ``F-R-50``, ``L-C-50``, ``U-C-50``) PackingSolver's dual-feasible-function bound closes and the solve ends after one to five seconds with status ``optimal``; on the other proven cases it holds the optimal packing but its bound stays open, so it keeps searching until the 10 s limit and reports ``feasible`` -- the proof there comes from CP-SAT. The three greedy libraries share one algorithm, py3dbp's pivot-point rule, its fork with a gravity step and its Go port, and return identical packings on most ratio-50 cases; with free rotation they total 41,234,099 (jerry800416), 40,933,828 (py3dbp) and 39,480,331 (gedex/bp3d), 6.6 to 10.5 percent below the fixed-pose bound total, and on seven or eight cases each, nearly all of them ratio 90 or random-profit cases, their relaxed value exceeds the fixed-pose bound: that is the rotation freedom, not a better packing, and their rows carry no star for that reason. On ``D-C-90`` jerry800416's relaxed 6,756,027 is above every fixed-pose value; whether a fixed-pose packing of that profit exists is open. Among the participants that kept the orientation, U-Nesting SA is closest at 15.6 percent below the bound with two proven cases, then GA, ExtremePoint and BRKGA at 18 to 19 percent (ExtremePoint hits five optima, all on cube or ``U`` instances, but collapses on the flat and long classes), and BottomLeftFill at 37.8 percent: a layer builder wastes the height above every short layer, which on a knapsack means fewer items. The cube instance ``C-C-50`` is the clearest picture of the difference and is drawn in the gallery: every greedy library packs six cubes for 1,265,340 while the optimum packs fourteen for 1,388,961.
+
+Martello-Pisinger-Vigo generator class 9, thirty to ninety items
+----------------------------------------------------------------
+
+**What the instances test.** Three 100 x 100 x 100 bins are cut into 30, 60 or 90 boxes by random orthogonal guillotine cuts; the boxes fill the three bins with no slack at all. The optimum is therefore three bins for every replicate and known by construction, and reaching it means rediscovering an exact cut: a single box in the wrong place forces a fourth bin. The three sizes show at which item count each participant stops finding the cut. Orientation is fixed, as in the generator's own solver.
+
+**Cases.** Every replicate has the same bound, three bins, from the construction; the volume bound and PackingSolver's reported bound agree with it. The last column shows where PackingSolver closed the proof.
+
+.. TABLE:: mpv_t9.facts
+
+**Leaderboard.**
+
+.. TABLE:: mpv_t9.leaderboard
+
+**Time.**
+
+.. TABLE:: mpv_t9.times
+
+**Reading the results.** packingsolver3d rebuilds the three-bin cut of all ten 30-item replicates in about one second each and its bound proves them; at 60 items it finds the cut once (``N60-R01``) and packs four bins on the other nine, at 90 items four bins on all ten, always with the bound at three, so its total is 109 bins for a construction of 90: 30 + 39 + 40. The authors' own branch-and-bound, run for one second as a reference, closes four 30-item replicates (``N30-R06`` to ``R09``) and none of the larger ones, 168 bins in total; it is an exact method and would close them with more time, so its row measures speed, not quality. No heuristic reaches three bins on any replicate. py3dbp and jerry800416 total 125 (41 + 41 + 43) even though they rotate freely, so at 60 and 90 items they are only two or three bins behind packingsolver3d, whose proof is gone there too; U-Nesting ExtremePoint, the best participant that kept the orientation, totals 139 (42 + 46 + 51); gedex/bp3d 155; U-Nesting SA, BRKGA and GA 165 to 176, no better than the constructive ExtremePoint despite their 10 s budget; BottomLeftFill 203, more than twice the optimum. The mechanism is visible in the gallery: greedy placement leaves gaps that the last few boxes cannot use, and every extra bin is one of those.
+
+Ivancic-Mathur-Mohanty THPACK9, all 47 instances
+------------------------------------------------
+
+**What the instances test.** Weakly heterogeneous cargo: two to five item types with many copies each, 47 to 180 boxes, one container type per instance, every orientation allowed for every participant, so no row is relaxed and the comparison is direct. Optima range from two to about fifty containers.
+
+**Cases.** No published optimality proof ships with the files. The bound is the tighter of the volume bound and PackingSolver's reported bound; where PackingSolver's incumbent meets it the instance is proven, elsewhere the gap between the best solution and the bound stays open and can be either a weak bound or a missed loading.
+
+.. TABLE:: imm.facts
+
+**Leaderboard.**
+
+.. TABLE:: imm.leaderboard
+
+**Time.**
+
+.. TABLE:: imm.times
+
+**Reading the results.** packingsolver3d proves 31 of the 47 instances, most of them within about a second, and uses 689 containers in total against a bound total of 655: nine instances are one container over the bound, three are two over, two three over, instance 30 four over and instance 37 nine over (23 containers against a bound of 14, the one case where the bound is plainly far from anything found). Sixteen instances ran to the 10 s limit. The greedy libraries agree with it on the loose instances -- py3dbp ties it on 13 instances, U-Nesting ExtremePoint on 14 -- and fall behind as the fit tightens: U-Nesting ExtremePoint totals 821 (+166), py3dbp and jerry800416 822 (+167), gedex/bp3d 890 (+235). The largest single differences are instance 1 (50 containers against 25 for seventy boxes in a 10 x 6 x 16 container, one or two boxes per container), instance 13 (40 against 25), instance 14 (40 against 27) and instance 16 (33 against 26). The four U-Nesting metaheuristics returned placements that stick out of the container on seven (BottomLeftFill) to nine (GA, BRKGA, SA) instances, shown as ``invalid``; their totals are therefore ``n/a``, and on the instances where they are valid they sit between ExtremePoint and gedex/bp3d. Every non-invalid solution on this page, ours included, passed the same geometry check.
+
+What the numbers do and do not say
+----------------------------------
+
+They say that on small, constraint-free instances with a known or proven optimum, the anytime search of PackingSolver ``box`` reaches the optimum within ten seconds far more often than greedy loading heuristics and sequence metaheuristics driven through a constructive placer, that its own bound certifies a good share of those optima, and that the difference is largest exactly where the fit is tight; they also say where its ten seconds are not enough -- the 60- and 90-item class-9 cuts, the open ratio-90 knapsack cases, sixteen THPACK9 instances -- and that an exact CP-SAT model with twice the time is a fair match on the knapsack family. They do not rank the libraries as software: the greedy libraries answer in milliseconds and several of them handle weight, stability and stacking that ``box`` does not; every number here is a single run on one machine; and PackingSolver used several threads on the knapsack cases while everything else ran on one. The caveats are spelled out on :doc:`../protocol/index`.

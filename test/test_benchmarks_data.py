@@ -31,8 +31,7 @@ def test_third_party_solutions_are_checked_not_trusted(entry):
     instance, profits, pose = mb.load_case(entry['benchmark'], entry['case'])
     errors, objective, bins_used, placed = mb.check(instance, profits, entry['placements'], entry['pose'],
                                                     complete=mb.BENCHMARKS[entry['benchmark']]['sense'] == 'min')
-    known_invalid = entry['benchmark'] == 'imm' and entry['case'] == 'IMM-01' and entry['participant'] in ('rust_layer', 'rust_ga', 'rust_brkga', 'rust_sa')
-    assert bool(errors) == known_invalid, errors[:3]
+    assert bool(errors) == bool(entry.get('invalid')), errors[:3]
 
 
 def test_every_case_has_our_result():

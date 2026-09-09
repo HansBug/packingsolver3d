@@ -74,7 +74,7 @@
 packingsolver3d，即 PackingSolver ``box``
 -----------------------------------------
 
-`PackingSolver <https://github.com/fontanf/packingsolver>`__ 由 Florian Fontan 开发，是面向二维与三维装箱问题的 C++ 求解器；本包把它的 ``box`` 求解器编进 Python 扩展并在进程内调用（见 :doc:`../../explanations/architecture/index_zh`\ ）。``box`` 是 anytime 优化求解器，不是装载启发式。它的核心是基于插入分支方案的树搜索 -- 每个节点是一个部分装法，子节点在某个候选位置多放一件 -- 用配套库 `treesearchsolver <https://github.com/fontanf/treesearchsolver>`__ 的迭代束搜索来探索，束宽逐步放大直到触及时限或搜完整棵树。上界来自对偶可行函数；上界与当前解相遇时运行提前结束并给出 ``OPTIMAL`` 状态，这正是每个第 9 类 replicate 和八个 THPACK9 case 中七个所发生的事。多箱时 ``box`` 在单箱搜索之上叠加一组算法：顺序单背包、顺序价值修正、列生成（内置 HiGHS 线性规划求解器）以及对箱数的二分搜索；每个子算法都可以通过 :func:`packingsolver3d.box.solve` 关闭。这里的运行全部使用默认值：anytime 模式、全部子算法、``time_limit=10.0``\ 、``memory_limit=1024``\ 。
+`PackingSolver <https://github.com/fontanf/packingsolver>`__ 由 Florian Fontan 开发，是面向二维与三维装箱问题的 C++ 求解器；本包把它的 ``box`` 求解器编进 Python 扩展并在进程内调用（见 :doc:`../../explanations/architecture/index_zh`\ ）。``box`` 是 anytime 优化求解器，不是装载启发式。它的核心是基于插入分支方案的树搜索 -- 每个节点是一个部分装法，子节点在某个候选位置多放一件 -- 用配套库 `treesearchsolver <https://github.com/fontanf/treesearchsolver>`__ 的迭代束搜索来探索，束宽逐步放大直到触及时限或搜完整棵树。上界来自对偶可行函数；上界与当前解相遇时运行提前结束并给出 ``OPTIMAL`` 状态，这正是每个 30 件的第 9 类 replicate 和 47 个 THPACK9 实例中 31 个所发生的事。多箱时 ``box`` 在单箱搜索之上叠加一组算法：顺序单背包、顺序价值修正、列生成（内置 HiGHS 线性规划求解器）以及对箱数的二分搜索；每个子算法都可以通过 :func:`packingsolver3d.box.solve` 关闭。这里的运行全部使用默认值：anytime 模式、全部子算法、``time_limit=10.0``\ 、``memory_limit=1024``\ 。
 
 py3dbp
 ------
@@ -94,14 +94,14 @@ gedex/bp3d
 U-Nesting
 ---------
 
-`U-Nesting <https://github.com/iyulab/U-Nesting>`__\ （iyulab，Rust，MIT）是带 C FFI 的二维排样与三维装箱引擎。其三维模块提供五种策略，分别单独运行：\ **ExtremePoint** 按 Crainic、Perboli 与 Tadei 构造式启发式的思路把物品放到先前物品留下的极点上；\ **BottomLeftFill** 是分层构建的左下填充贪心；\ **GA** 与 **BRKGA** 分别用普通遗传算法和偏置随机键遗传算法演化物品序列，每个序列由构造式放置器解码；\ **SA** 对序列做模拟退火。该库一次调用只装一个容器，因此多箱通过重复调用处理，每次接收上一个容器剩下的物品。各策略遵守固定姿态并获得 10 s 预算；在允许所有旋转的 THPACK9 族上，其中四个在实例 1 上给出了伸出容器的摆放，被校验器判为非法。
+`U-Nesting <https://github.com/iyulab/U-Nesting>`__\ （iyulab，Rust，MIT）是带 C FFI 的二维排样与三维装箱引擎。其三维模块提供五种策略，分别单独运行：\ **ExtremePoint** 按 Crainic、Perboli 与 Tadei 构造式启发式的思路把物品放到先前物品留下的极点上；\ **BottomLeftFill** 是分层构建的左下填充贪心；\ **GA** 与 **BRKGA** 分别用普通遗传算法和偏置随机键遗传算法演化物品序列，每个序列由构造式放置器解码；\ **SA** 对序列做模拟退火。该库一次调用只装一个容器，因此多箱通过重复调用处理，每次接收上一个容器剩下的物品。各策略遵守固定姿态并获得 10 s 预算；在允许所有旋转的 THPACK9 族上，其中四个在 47 个实例中的七到九个上给出了伸出容器的摆放，被校验器判为非法。
 
 OR-Tools CP-SAT 精确模型（参照）
 --------------------------------
 
-`CP-SAT <https://developers.google.com/optimization/cp/cp_solver>`__ 是 Google `OR-Tools <https://github.com/google/or-tools>`__\ （此处为 9.15）的约束规划求解器。参照是固定姿态三维背包的精确模型 -- 每件物品每个轴一个可选区间、两两不重叠析取、最大化利润 -- 以 20 s、单线程、4 GiB 运行。CP-SAT 以 ``OPTIMAL`` 状态结束时，其值就是已证明最优并进入理论界一行；只得到可行解时它的界很松，改用 PackingSolver 的界。它认证了十个背包 case 中的八个。
+`CP-SAT <https://developers.google.com/optimization/cp/cp_solver>`__ 是 Google `OR-Tools <https://github.com/google/or-tools>`__\ （此处为 9.15）的约束规划求解器。参照是固定姿态三维背包的精确模型 -- 每件物品每个轴一个可选区间、两两不重叠析取、最大化利润 -- 以 20 s、单线程、4 GiB 运行。CP-SAT 以 ``OPTIMAL`` 状态结束时，其值就是已证明最优并进入理论界一行；只得到可行解时它的界很松，改用 PackingSolver 的界。它认证了二十个背包 case 中的十三个，并在一个未决 case 上拿着比 PackingSolver 10 s 后更好的当前解。
 
 Martello-Pisinger-Vigo 3dbpp.c（参照）
 --------------------------------------
 
-`3dbpp.c <http://hjemmesider.diku.dk/~pisinger/codes.html>`__ 是作者们针对三维装箱问题的分支定界（Martello、Pisinger 与 Vigo，*Operations Research* 2000；与 den Boef、Korst 合作的一般装箱版本，*ACM TOMS* 2007）。它把箱数下界与精确的单箱填充子程序结合在对箱分配的分支定界里，被时限中止时报告一个下界和一个上界。它以 1 s、单线程、生成器默认的一般装箱参数运行在自己生成的第 9 类 replicate 上；表中显示其上界，其下界三进入理论界一行。
+`3dbpp.c <http://hjemmesider.diku.dk/~pisinger/codes.html>`__ 是作者们针对三维装箱问题的分支定界（Martello、Pisinger 与 Vigo，*Operations Research* 2000；与 den Boef、Korst 合作的一般装箱版本，*ACM TOMS* 2007）。它把箱数下界与精确的单箱填充子程序结合在对箱分配的分支定界里，被时限中止时报告一个下界和一个上界。它以 1 s、单线程、生成器默认的一般装箱参数运行在自己生成的三十个第 9 类 replicate 上；表中显示其上界，其下界三进入理论界一行。
