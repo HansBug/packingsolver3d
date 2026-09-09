@@ -3,9 +3,10 @@ Overview:
     Interactive three-dimensional views of a :class:`~packingsolver3d.result.Result`.
 
     The drawing follows upstream's own ``scripts/visualize_box.py`` and
-    ``scripts/visualize_boxstacks.py``: every bin is a translucent grey box,
-    every placement an opaque cuboid with a black outline and its item type id
-    at the centre, one 3D scene per bin arranged in a grid.  Figures are plotly
+    ``scripts/visualize_boxstacks.py``: every placement is an opaque cuboid
+    with a black outline and its item type id, one 3D scene per bin arranged
+    in a grid.  The bin itself is a grey wireframe rather than upstream's
+    translucent mesh, whose front faces hide the items in static exports.  Figures are plotly
     objects, so they can be shown in a notebook or browser, saved as HTML with
     :meth:`plotly.graph_objects.Figure.write_html`, or exported to PNG with
     :meth:`plotly.graph_objects.Figure.write_image` (needs ``kaleido``).
@@ -25,8 +26,8 @@ Example::
     >>> figure = plot_result(box.solve(instance, time_limit=2.0))
     >>> type(figure).__name__
     'Figure'
-    >>> sum(1 for trace in figure.data if trace.type == 'mesh3d')  # 1 bin + 10 items
-    11
+    >>> sum(1 for trace in figure.data if trace.type == 'mesh3d')  # one cuboid per item
+    10
 """
 
 import math
@@ -102,10 +103,12 @@ def _bin_traces(packed: PackedBin, color_by: str, show_ids: bool, first: bool) -
     """
     Traces for one bin: the bin shell, one mesh per placement, outlines, labels.
     """
-    traces = [go.Mesh3d(
-        name='Bins', legendgroup='bins', showlegend=first,
-        opacity=0.1, color='grey', flatshading=True,
-        **_cuboid(0, 0, 0, packed.x, packed.y, packed.z)
+    # The bin is a wireframe rather than upstream's translucent mesh: in a static
+    # export the mesh's front faces are depth-sorted over the items and hide them.
+    shell_x, shell_y, shell_z = _outline(0, 0, 0, packed.x, packed.y, packed.z)
+    traces = [go.Scatter3d(
+        x=shell_x, y=shell_y, z=shell_z, name='Bins', legendgroup='bins', showlegend=first,
+        mode='lines', line=dict(color='grey', width=3),
     )]
     borders = ([], [], [])  # type: Tuple[list, list, list]
     labels = ([], [], [], [])  # type: Tuple[list, list, list, list]
@@ -133,7 +136,7 @@ def _bin_traces(packed: PackedBin, color_by: str, show_ids: bool, first: bool) -
         borders[2].extend(zs)
         labels[0].append((x1 + x2) / 2)
         labels[1].append((y1 + y2) / 2)
-        labels[2].append((z1 + z2) / 2)
+        labels[2].append(z2)  # on the top face, where an opaque box does not hide it
         labels[3].append(str(placement.item_type_id))
     traces.append(go.Scatter3d(
         x=borders[0], y=borders[1], z=borders[2], name='Item borders', legendgroup='items',
@@ -145,6 +148,28 @@ def _bin_traces(packed: PackedBin, color_by: str, show_ids: bool, first: bool) -
             showlegend=False, mode='text', text=labels[3], textfont=dict(size=8), textposition='middle center',
         ))
     return traces
+
+
+def _camera_eye(packed: PackedBin) -> Dict[str, float]:
+    """
+    A camera position that frames the whole bin.
+
+    The default diagonal view crops elongated bins (a semi-trailer is five
+    times longer than wide), so a bin much longer along one horizontal axis is
+    looked at from the side of that axis, and every eye is moved further out
+    than plotly's default.
+
+    :param packed: The bin being framed.
+    :return: ``dict(x=..., y=..., z=...)`` for ``scene.camera.eye``.
+    """
+    longest = max(packed.x, packed.y)
+    shortest = max(1, min(packed.x, packed.y))
+    if longest / shortest >= 2.0:
+        along, across = 0.6, 1.3
+        eye = (along, across) if packed.x >= packed.y else (across, along)
+    else:
+        eye = (1.7, 1.7)
+    return dict(x=eye[0], y=eye[1], z=1.2 if longest / shortest < 2.0 else 0.8)
 
 
 def _bin_title(packed: PackedBin) -> str:
@@ -174,8 +199,8 @@ def plot_bin(packed: PackedBin, color_by: str = 'item_type', show_ids: bool = Tr
         >>> packed = PackedBin(bin_id=0, bin_type_id=0, copies=1, x=10, y=10, z=10, placements=(
         ...     Placement(item_type_id=0, bin_id=0, x=0, y=0, z=0, lx=5, ly=5, lz=5, rotation=Rotation.XYZ),
         ... ))
-        >>> [trace.type for trace in plot_bin(packed).data]
-        ['mesh3d', 'mesh3d', 'scatter3d', 'scatter3d']
+        >>> [trace.type for trace in plot_bin(packed).data]  # bin outline, item, item borders, labels
+        ['scatter3d', 'mesh3d', 'scatter3d', 'scatter3d']
     """
     return plot_result((packed,), color_by=color_by, show_ids=show_ids)
 
@@ -231,8 +256,14 @@ def plot_result(result, color_by: str = 'item_type', show_ids: bool = True,
         for trace in _bin_traces(packed, color_by, show_ids, first=(position == 0)):
             figure.add_trace(trace, row=row, col=col)
         scene = 'scene' if position == 0 else 'scene{n}'.format(n=position + 1)
+        # True proportions with the longest edge normalised to one unit: plotly's
+        # 'data' mode normalises the geometric mean instead, which pushes the long
+        # edge of an elongated bin out of the frame.
+        longest = float(max(packed.x, packed.y, packed.z)) or 1.0
         figure.layout[scene].update(
-            aspectmode='data',
+            aspectmode='manual',
+            aspectratio=dict(x=packed.x / longest, y=packed.y / longest, z=packed.z / longest),
+            camera=dict(eye=_camera_eye(packed)),
             xaxis=dict(range=[0, packed.x], title='x'),
             yaxis=dict(range=[0, packed.y], title='y'),
             zaxis=dict(range=[0, packed.z], title='z'),

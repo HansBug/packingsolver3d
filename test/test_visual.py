@@ -17,12 +17,13 @@ class TestPlotResult:
         result = box.solve(box_instance, time_limit=2.0)
         figure = plot_result(result)
         types = _types(figure)
-        # one bin shell, ten items, one border polyline, one label trace
-        assert types.count('mesh3d') == 1 + len(result.placements)
-        assert types.count('scatter3d') == 2
+        # ten item cuboids; bin outline, item borders and labels are polylines / text
+        assert types.count('mesh3d') == len(result.placements)
+        assert types.count('scatter3d') == 3
         names = {trace.name for trace in figure.data if trace.showlegend}
         assert names == {'Bins', 'Item type 0', 'Item type 1'}
-        assert figure.layout.scene.aspectmode == 'data'
+        assert figure.layout.scene.aspectmode == 'manual'
+        assert (figure.layout.scene.aspectratio.x, figure.layout.scene.aspectratio.z) == (1.0, 1.0)
         assert tuple(figure.layout.scene.xaxis.range) == (0, 100)
 
     def test_color_by_stack(self, stack_instance):
@@ -35,7 +36,7 @@ class TestPlotResult:
         result = box.solve(box_instance, time_limit=2.0)
         figure = plot_result(result, color_by='same', show_ids=False)
         assert {trace.name for trace in figure.data if trace.showlegend} == {'Bins', 'Items'}
-        assert _types(figure).count('scatter3d') == 1  # borders only
+        assert _types(figure).count('scatter3d') == 2  # bin outline and borders, no labels
         colors = {trace.color for trace in figure.data if trace.type == 'mesh3d' and trace.name == 'Items'}
         assert colors == {'cornflowerblue'}
 
@@ -64,6 +65,15 @@ class TestPlotResult:
         assert figure.layout.scene3.zaxis.range[1] == 12
         assert len(plot_result(bins, columns=1).layout.annotations) == 3
 
+    def test_elongated_bins_are_viewed_from_the_side(self):
+        long_x = PackedBin(bin_id=0, bin_type_id=0, copies=1, x=1360, y=240, z=260)
+        long_y = PackedBin(bin_id=0, bin_type_id=0, copies=1, x=240, y=1360, z=260)
+        eye_x = plot_result((long_x,)).layout.scene.camera.eye
+        eye_y = plot_result((long_y,)).layout.scene.camera.eye
+        assert (eye_x.x, eye_x.y, eye_x.z) == (0.6, 1.3, 0.8) and (eye_y.x, eye_y.y) == (1.3, 0.6)
+        ratio = plot_result((long_x,)).layout.scene.aspectratio
+        assert (ratio.x, round(ratio.y, 3), round(ratio.z, 3)) == (1.0, 0.176, 0.191)
+
     def test_rejects_bad_arguments(self, box_instance):
         result = box.solve(box_instance, time_limit=2.0)
         with pytest.raises(ValueError):
@@ -81,9 +91,11 @@ class TestPlotBin:
             Placement(item_type_id=1, bin_id=0, x=5, y=0, z=0, lx=5, ly=5, lz=5, rotation=Rotation.XYZ),
         ))
         figure = plot_bin(packed)
-        assert _types(figure) == ['mesh3d', 'mesh3d', 'mesh3d', 'scatter3d', 'scatter3d']
+        assert _types(figure) == ['scatter3d', 'mesh3d', 'mesh3d', 'scatter3d', 'scatter3d']
         labels = [trace for trace in figure.data if trace.type == 'scatter3d' and trace.mode == 'text'][0]
         assert list(labels.text) == ['0', '1']
+        assert list(labels.z) == [5, 5]  # written on the top face
+        assert figure.layout.scene.camera.eye.x == 1.7  # square footprint: diagonal view
         # items are shrunk by the epsilon on every side so faces do not z-fight
         item = [trace for trace in figure.data if trace.name == 'Item type 0'][0]
         assert min(item.x) > 0 and max(item.x) < 5
