@@ -1,0 +1,4 @@
+setuptools>=42
+wheel
+build>=0.7.0
+cmake>=3.28

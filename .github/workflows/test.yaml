@@ -1,0 +1,199 @@
+name: Code Test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  # The executables do not depend on the Python version, so build them once per
+  # OS and hand them to every interpreter in the matrix instead of compiling
+  # PackingSolver twenty-odd times per push.
+  native:
+    name: Build native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - 'ubuntu-22.04'
+          - 'windows-2022'
+          - 'macos-14'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 20
+          submodules: 'recursive'
+      - name: Set up python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Set up build tools
+        shell: bash
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements-build.txt
+          cmake --version
+      - name: Build upstream executables
+        shell: bash
+        run: |
+          make build
+          ls -al packingsolver3d/bin
+      - name: Upload executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ runner.os }}
+          path: |
+            packingsolver3d/bin/packingsolver_box
+            packingsolver3d/bin/packingsolver_boxstacks
+            packingsolver3d/bin/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  unittest:
+    name: Code test
+    runs-on: ${{ matrix.os }}
+    needs: native
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - 'ubuntu-22.04'
+          - 'windows-2022'
+          - 'macos-14'
+        python-version:
+          - '3.7'
+          - '3.8'
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+        exclude:
+          # The public macOS arm64 runner does not have usable setup-python installers for these EOL versions.
+          - os: 'macos-14'
+            python-version: '3.7'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 20
+          submodules: 'recursive'
+      - name: Set up python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Download executables
+        uses: actions/download-artifact@v4
+        with:
+          name: native-${{ runner.os }}
+          path: packingsolver3d/bin
+      - name: Restore executable bits
+        shell: bash
+        run: |
+          chmod +x packingsolver3d/bin/packingsolver_* || true
+          ls -al packingsolver3d/bin
+      - name: Prepare Python env
+        shell: bash
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+      - name: Run unittest
+        env:
+          CI: 'true'
+        shell: bash
+        run: |
+          make unittest
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  # Wheel smoke on every platform; the full Python x architecture breadth lives in Release Test.
+  test_wheel_build:
+    name: Try Build
+    runs-on: ${{ matrix.os }}
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    env:
+      CIBW_CACHE_PATH: ./.cibw-cache
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: 'ubuntu-22.04'
+            python: '3.7'  # exercises the last cibuildwheel line that still targets cp37
+            architecture: 'x86_64'
+          - os: 'ubuntu-22.04'
+            python: '3.12'
+            architecture: 'x86_64'
+          - os: 'windows-2022'
+            python: '3.12'
+            architecture: 'AMD64'
+          - os: 'macos-14'
+            python: '3.12'
+            architecture: 'arm64'
+          - os: 'macos-15-intel'
+            python: '3.12'
+            architecture: 'x86_64'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 20
+          submodules: 'recursive'
+      - name: Set up QEMU
+        if: ${{ runner.os == 'Linux' }}
+        uses: docker/setup-qemu-action@v3
+      - name: Set up python ${{ matrix.python }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify macOS arch
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          [ "$(uname -m)" = "${{ matrix.architecture }}" ]
+      - name: Prime cibuildwheel cache
+        if: ${{ runner.os == 'Windows' || runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          case "${{ matrix.python }}" in
+            3.7) VIRTUALENV_VERSION=20.21.1 ;;
+            *) VIRTUALENV_VERSION=20.30.0 ;;
+          esac
+          mkdir -p "$CIBW_CACHE_PATH"
+          TARGET="$CIBW_CACHE_PATH/virtualenv-${VIRTUALENV_VERSION}.pyz"
+          URL="https://raw.githubusercontent.com/pypa/get-virtualenv/${VIRTUALENV_VERSION}/public/virtualenv.pyz"
+          if [ ! -f "$TARGET" ]; then
+            curl -fL --retry 8 --retry-all-errors --retry-delay 5 -o "$TARGET" "$URL"
+          fi
+          ls -al "$CIBW_CACHE_PATH"
+      - name: Build wheels
+        env:
+          CIBW_SKIP: "pp* cp31?t-*"
+          CIBW_ARCHS: ${{ matrix.architecture }}
+          CIBW_PROJECT_REQUIRES_PYTHON: ~=${{ matrix.python }}.0
+        shell: bash
+        run: |
+          python -m pip install -U pip
+          pip install cibuildwheel
+          python -m cibuildwheel --output-dir wheelhouse
+      - name: Show the buildings
+        shell: bash
+        run: |
+          ls -al ./wheelhouse
+          mv wheelhouse dist
+      - name: Upload packed files to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ runner.os }}-cp${{ matrix.python }}-${{ matrix.architecture }}
+          path: ./dist/*

@@ -1,0 +1,16 @@
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+  white-space: normal;
+}
+
+.rst-content div.graphviz {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.rst-content div.graphviz > img,
+.rst-content div.graphviz > svg {
+  display: inline-block;
+  height: auto;
+  max-width: 100%;
+}

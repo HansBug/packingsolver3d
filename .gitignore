@@ -1,0 +1,29 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging
+build/
+dist/
+wheelhouse/
+*.egg-info/
+.eggs/
+.cibw-cache/
+
+# Test and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+junit.xml
+htmlcov/
+
+# Docs
+docs/build/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

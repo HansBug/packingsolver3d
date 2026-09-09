@@ -1,0 +1,37 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+# Free-threaded 3.13/3.14 wheels are not built: the executables do not care, but the test matrix does not cover them.
+skip = ["pp*", "cp31?t-*"] # Do not build for PyPy or free-threaded CPython
+build-verbosity = 1
+before-test = [
+    "python -m pip install -r {project}/requirements-test.txt",
+]
+# Run from a scratch directory so the installed wheel, not the source tree, is what gets imported.
+test-command = [
+    "cp -rf {project}/test test",
+    "cp {project}/pytest.ini pytest.ini",
+    "pytest test -sv -m unittest",
+    "rm -rf test",
+]
+
+## Linux build configuration
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+before-all = "bash {package}/cibw/linux_before_all.sh {package}"
+
+## macOS build configuration
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+before-all = "bash {package}/cibw/macos_before_all.sh {package}"
+
+## Windows build configuration
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+before-all = "bash -c 'exec bash \"{package}/cibw/windows_before_all.sh\" \"{package}\"'"

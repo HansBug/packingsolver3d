@@ -1,0 +1,5 @@
+# Built executables are produced by tools/build_upstream.py and are never
+# committed; only this directory's Python files belong in the repository.
+*
+!.gitignore
+!__init__.py
