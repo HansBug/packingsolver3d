@@ -156,6 +156,10 @@ Tests inside cibuildwheel copy `test/` into a scratch directory before running p
 - Capture `std::cout` / `std::cerr` for the duration of the call only, restored by RAII on every exit path.
 - Comments explain why, in English, and reference the upstream file when a workaround exists because of it.
 
+## Source distribution check
+
+`tools/try_sdist.sh <image> <sdist.tar.gz>` installs the tarball from source in a clean container (Debian glibc, Alpine musl or bare Ubuntu with its distro Python) and runs the unit tests against the installed package; the `Try sdist` job of `test.yaml` does it for every push, and `make try_sdist IMAGE=...` does it locally (behind this machine's proxy: `DOCKER_ARGS="--network host -e http_proxy=http://127.0.0.1:17777 -e https_proxy=http://127.0.0.1:17777"`). Anything the sdist needs at build time -- a CMake file, a header, a data file -- must be listed in `MANIFEST.in`; the missing `cmake/msvc_runtime.cmake` that broke every source install before 0.0.1 is the reason this check exists.
+
 ## Coverage
 
 One `coverage.xml` carries both languages. `pytest-cov` writes the Python part; when the bridge was built with `LINETRACE=1 make build` (CMake option `PS3D_COVERAGE`, `--coverage -O0` on `packingsolver3d/_core.cpp`, GCC/Clang only), `make unittest` runs `gcovr` (from `requirements-cov.txt`) on the gcov data in `build/cmake`, then merges its Cobertura output with pytest-cov's through `gcovr --cobertura-add-tracefile`, rewriting `coverage.xml` and printing one table with the `.py` files and `_core.cpp` side by side. The Linux jobs of `test.yaml` do exactly that and upload the single file to Codecov; wheels are never built instrumented. A new branch in the bridge is expected to show up in that table; if it cannot be reached from Python, it should not exist.

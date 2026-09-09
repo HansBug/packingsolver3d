@@ -1,4 +1,4 @@
-.PHONY: docs docs_en docs_zh pdocs test unittest doctest figures benchmarks build build_clean package clean rst_auto help
+.PHONY: docs docs_en docs_zh pdocs test unittest doctest figures benchmarks try_sdist build build_clean package clean rst_auto help
 
 PYTHON := $(shell which python)
 
@@ -61,6 +61,8 @@ help:
 	@echo "                      Options: RANGE_DIR=<dir>"
 	@echo "  make figures      - Regenerate the packing figures (HTML + PNG) under docs/source/_static/figures"
 	@echo "                      Needs plotly and kaleido with a Chrome/Chromium binary; FIGURES_ARGS=--no-png skips PNG"
+	@echo "  make try_sdist    - Build the sdist and install it from source in a clean container, then run the unit tests there"
+	@echo "                      (docker; IMAGE=python:3.12-alpine|python:3.10-slim-bookworm|ubuntu:22.04, DOCKER_ARGS=... for a proxy)"
 	@echo "  make benchmarks   - Solve the benchmark cases and regenerate the tables and figures of docs/source/benchmarks"
 	@echo "                      (tools/make_benchmarks.py --solve --render); BENCHMARKS_ARGS=--no-png skips PNG"
 	@echo ""
@@ -87,6 +89,13 @@ package:
 	rm -f ${DIST_DIR}/*.whl ${DIST_DIR}/*.tar.gz
 	$(PYTHON) -m build --sdist --outdir ${DIST_DIR}
 	PACKINGSOLVER3D_BUILD_DIR="${CMAKE_BUILD_DIR}" $(PYTHON) -m build --wheel --outdir ${DIST_DIR}
+
+# Install the sdist from source in a clean container and run the unit tests there (needs docker).
+# IMAGE selects the environment; DOCKER_ARGS passes extra docker-run flags (a proxy, for instance).
+IMAGE ?= python:3.12-alpine
+try_sdist:
+	$(PYTHON) -m build --sdist --outdir ${DIST_DIR}
+	tools/try_sdist.sh "${IMAGE}" ${DIST_DIR}/*.tar.gz $(DOCKER_ARGS)
 
 clean:
 	rm -rf ${DIST_DIR} ${BUILD_DIR} *.egg-info

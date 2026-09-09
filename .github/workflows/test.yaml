@@ -103,6 +103,42 @@ jobs:
           fail_ci_if_error: false
 
   # Wheel smoke on every (runner, architecture) pair; the Python breadth lives in Release Test.
+  test_sdist_build:
+    name: Try sdist
+    runs-on: ubuntu-22.04
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    strategy:
+      fail-fast: false
+      matrix:
+        # Clean environments a user installing from source may have: Debian glibc with the official Python
+        # image, Alpine musl, and a bare Ubuntu with its distro Python and apt toolchain.
+        image:
+          - 'python:3.10-slim-bookworm'
+          - 'python:3.12-alpine'
+          - 'ubuntu:22.04'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 20
+          submodules: 'recursive'
+      - name: Set up python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build the sdist
+        shell: bash
+        run: |
+          python -m pip install -U pip build twine
+          python -m build --sdist --outdir dist
+          twine check dist/*
+          ls -al dist
+      - name: Install the sdist from source and run the unit tests in ${{ matrix.image }}
+        shell: bash
+        run: |
+          tools/try_sdist.sh "${{ matrix.image }}" dist/*.tar.gz
+
   test_wheel_build:
     name: Try Build
     runs-on: ${{ matrix.os }}

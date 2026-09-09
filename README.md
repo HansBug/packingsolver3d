@@ -176,6 +176,7 @@ LINETRACE=1 make build && make unittest   # coverage.xml then also covers the C+
 make rst_auto   # regenerate API reference pages
 make docs       # sphinx html
 make package    # sdist + wheel
+make try_sdist  # install the sdist from source in a clean docker image and run the unit tests there
 ```
 
 `make help` lists every target; `RANGE_DIR=<subdir>` narrows `unittest` and `rst_auto` to one directory.
