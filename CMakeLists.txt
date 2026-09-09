@@ -19,15 +19,17 @@ set(PACKINGSOLVER_USE_HIGHS ON CACHE BOOL "" FORCE)
 set(PACKINGSOLVER_USE_KNITRO OFF CACHE BOOL "" FORCE)
 set(PACKINGSOLVER_BUILD_MAIN OFF CACHE BOOL "" FORCE)
 set(PACKINGSOLVER_BUILD_TEST OFF CACHE BOOL "" FORCE)
+# Every project() call underneath upstream (its own and its FetchContent
+# dependencies) resets the default MSVC runtime to the DLL one, see the file.
+set(CMAKE_PROJECT_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/msvc_runtime.cmake")
 add_subdirectory(upstream/packingsolver EXCLUDE_FROM_ALL)
 
-# Upstream pins the static MSVC runtime for its command line tools.  An
-# extension module has to use the DLL runtime CPython itself links against, so
-# every target underneath the submodule (FetchContent dependencies included)
-# is switched over here rather than by patching upstream.
-# Only real binary targets carry a runtime library; BUILDSYSTEM_TARGETS also
-# lists ALIAS, INTERFACE, IMPORTED and utility targets, which reject or ignore
-# the property.
+# Upstream's own targets are created after its set(CMAKE_MSVC_RUNTIME_LIBRARY
+# MultiThreaded), which the project() hook above cannot pre-empt, so they are
+# switched to the DLL runtime by property afterwards.  Only real binary targets
+# carry the property; BUILDSYSTEM_TARGETS also lists INTERFACE, IMPORTED and
+# utility targets, and a name shadowed by a same-named ALIAS cannot be modified
+# at all (those are covered by the hook).
 set(PS3D_RUNTIME_TARGET_TYPES STATIC_LIBRARY SHARED_LIBRARY MODULE_LIBRARY OBJECT_LIBRARY EXECUTABLE)
 function(ps3d_use_dll_runtime dir)
     get_property(targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
