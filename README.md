@@ -163,6 +163,19 @@ packingsolver3d is a faithful binding: it does what PackingSolver does at the pi
 * **The `default` objective produces no solution.** It is upstream's unset placeholder, so `Instance` requires an explicit `objective` and `Objective.DEFAULT` is refused with `InvalidInstanceError`.
 * **`OPTIMAL` is only reported when the achieved value meets a bound upstream reported for that objective**; otherwise the result is `FEASIBLE`, however good it looks. Keep `value` and `bound` as two columns when you publish numbers.
 
+## Supported platforms
+
+| Platform | Wheels for CPython | Why the range stops where it does |
+|---|---|---|
+| Linux x86_64 (manylinux) | 3.7 -- 3.14 | full range |
+| Linux aarch64 (manylinux) | 3.8 -- 3.14 | no 3.7 build exists for arm64 on the CI toolchain; 3.7 has been end-of-life since 2023 |
+| macOS x86_64 and arm64 (11.0+) | 3.8 -- 3.14 | same 3.7 gap |
+| Windows AMD64 | 3.7 -- 3.14 | full range |
+| Windows ARM64 | 3.11 -- 3.14 | see below |
+| everything else (i686, ppc64le, s390x, armv7l, riscv64, loongarch64, PyPy, free-threaded builds) | none | `pip` builds the sdist; see Installation |
+
+**Windows on ARM and older Pythons.** CPython 3.7 and 3.8 never had a Windows ARM64 build at all. 3.9 and 3.10 exist for ARM64 only as python.org's `pythonarm64` nuget package (marked experimental at the time, meant for embedding and CI): there was no installer and no Store package before 3.11, and the CI toolchain (`actions/setup-python`) provides ARM64 hosts from 3.11 on. Wheels for 3.9/3.10 on Windows ARM64 are deliberately not built: the scientific stack does not ship them either (numpy and scipy start at 3.12, pandas at 3.11), 3.9 is end-of-life and 3.10 reaches end-of-life in October 2026, and users of those interpreters on ARM hardware almost always run the x64 build under emulation, which the AMD64 wheels cover. On such a machine `pip` falls back to the sdist, which builds with the MSVC ARM64 toolchain.
+
 ## Development
 
 ```shell

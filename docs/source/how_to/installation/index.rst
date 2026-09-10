@@ -33,7 +33,7 @@ Wheels
      - ARM64
      - 3.11 -- 3.14
 
-The gaps follow what exists upstream of us: CPython has no official Windows ARM64 build before 3.11, and Python 3.7 (end of life since 2023) has no arm64 builds for Linux or macOS. Free-threaded (``t``) and PyPy interpreters are not built.
+The gaps follow what exists upstream of us. Python 3.7 (end of life since 2023) has no arm64 build for Linux or macOS on the CI toolchain. On Windows ARM64, CPython 3.7 and 3.8 were never built at all; 3.9 and 3.10 exist only as python.org's experimental ``pythonarm64`` nuget package for embedding and CI, with no installer or Store package before 3.11, and neither the scientific stack (numpy and scipy start their ARM64 Windows wheels at 3.12, pandas at 3.11) nor this package ships wheels for them -- users of those interpreters on ARM hardware run the x64 build under emulation, which the AMD64 wheels cover, and ``pip`` builds the sdist with the MSVC ARM64 toolchain otherwise. Free-threaded (``t``) and PyPy interpreters are not built.
 
 A wheel contains one extension module, ``packingsolver3d._core``, with the upstream solvers statically linked in. It has no runtime dependency outside the standard library.
 

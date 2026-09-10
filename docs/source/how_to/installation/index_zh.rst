@@ -33,7 +33,7 @@ Wheel
      - ARM64
      - 3.11 -- 3.14
 
-空缺来自我们的上游：CPython 3.11 之前没有官方 Windows ARM64 构建，Python 3.7（2023 年停止维护）没有 Linux/macOS 的 arm64 构建。不构建自由线程（``t``\ ）与 PyPy 解释器的 wheel。
+空缺来自我们的上游。Python 3.7（2023 年停止维护）在 CI 工具链上没有 Linux/macOS 的 arm64 构建。Windows ARM64 上，CPython 3.7 与 3.8 从未有过构建；3.9 与 3.10 只以 python.org 面向嵌入与 CI 的实验性 ``pythonarm64`` nuget 包存在，3.11 之前既没有安装器也没有商店包，科学计算栈（numpy、scipy 的 ARM64 Windows wheel 从 3.12 起，pandas 从 3.11 起）和本包都不为它们发 wheel——ARM 硬件上用这些解释器的人跑的是模拟运行的 x64 版本，AMD64 wheel 已经覆盖；其余情况 ``pip`` 会用 MSVC 的 ARM64 工具链构建 sdist。不构建自由线程（``t``\ ）与 PyPy 解释器的 wheel。
 
 一个 wheel 只包含一个扩展模块 ``packingsolver3d._core``\ ，上游求解器静态链接其中，标准库之外没有运行时依赖。
 
