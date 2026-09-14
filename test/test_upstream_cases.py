@@ -156,6 +156,9 @@ BOX_CASES = [
 BOXSTACKS_CASES = [
     # test/boxstacks/optimize_test.cpp
     ('variable_sized_bin_packing_two_bin_types', dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL)),
+    # Three postal carton sizes on EUR pallets, optimal in two pallets (fontanf/packingsolver#576): the certificate has
+    # several bins, which is what used to read past the unsized weight vectors in Solution::feasible_axle_weights (#575).
+    ('bin_packing_postal_cartons_eur_pallets', dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL)),
     # The three *_time_limit cases run with a 3 s limit upstream (BoxStacksOptimizeTestParams::time_limit): they are the
     # reproducers of fontanf/packingsolver#570, where the box relaxation solved for the bound used to consume the whole
     # time limit and optimize() returned nothing; since #571 the bound comes from closed-form relaxations and the limit
