@@ -116,7 +116,7 @@ class TestSolve:
         assert len(result.placements) == 10
 
     def test_defects(self, defect_instance):
-        # Observed at upstream a7e53303: defects are read and echoed in the
+        # Observed at upstream a7e53303 and unchanged at 24decc4c: defects are read and echoed in the
         # certificate, but stacks are placed over them (corner, interior and
         # full-width defects alike).  Only acceptance is asserted here.
         result = boxstacks.solve(defect_instance, time_limit=2.0)

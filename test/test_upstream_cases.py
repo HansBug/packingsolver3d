@@ -156,6 +156,16 @@ BOX_CASES = [
 BOXSTACKS_CASES = [
     # test/boxstacks/optimize_test.cpp
     ('variable_sized_bin_packing_two_bin_types', dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL)),
+    # The three *_time_limit cases run with a 3 s limit upstream (BoxStacksOptimizeTestParams::time_limit): they are the
+    # reproducers of fontanf/packingsolver#570, where the box relaxation solved for the bound used to consume the whole
+    # time limit and optimize() returned nothing; since #571 the bound comes from closed-form relaxations and the limit
+    # is only a regression check.
+    ('knapsack_two_item_types_pallet_time_limit',
+     dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL, time_limit=3.0)),
+    ('bin_packing_two_item_types_pallets_time_limit',
+     dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL, time_limit=3.0)),
+    ('variable_sized_bin_packing_two_pallet_types_time_limit',
+     dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL, time_limit=3.0)),
     # test/boxstacks/sequential_onedimensional_rectangle_test.cpp calls the
     # sequential one-dimensional / rectangle algorithm directly, whose reference
     # is empty for both instances (they enter the axle weight repair loop
