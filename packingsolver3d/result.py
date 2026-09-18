@@ -181,7 +181,9 @@ class RunRecord:
     :param wall_time: Seconds the call took, measured from Python.
     :param stop_reason: Why the solve ended before upstream's own end, or
         ``None``: ``'callback'`` when the :func:`~packingsolver3d.box.solve`
-        ``progress_callback`` returned ``False``.
+        ``progress_callback`` returned ``False`` (or raised), ``'unimproved'``
+        when ``stop_when_unimproved_for`` seconds passed without a new
+        incumbent.
 
     Example::
 

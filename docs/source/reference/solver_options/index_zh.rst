@@ -27,6 +27,12 @@
    * - ``linear_programming_solver``
      - ``linear_programming_solver_name``
      - 总是设置；除自定义构建外为 ``highs``
+   * - ``stop_when_unimproved_for``
+     - ``timer`` 上的一个 end boolean（由看门狗线程置位）
+     - 多少秒没有新的当前解就停止求解，此时 ``RunRecord.stop_reason == 'unimproved'``\ ；在首个解出现之前计时从求解开始算
+   * - ``stop_when_unimproved_after``
+     - 同一看门狗
+     - 求解开始后多少秒之内不触发上述停止（默认 ``0``\ ）；须与 ``stop_when_unimproved_for`` 一起使用
    * - ``progress_callback``
      - ``new_solution_callback``
      - 每次当前解改进时以一个 :class:`~packingsolver3d.result.ProgressEvent` 调用；返回 ``False`` 可提前停止求解（此时 ``RunRecord.stop_reason == 'callback'``\ ）；见 :doc:`/how_to/budgets/index_zh`

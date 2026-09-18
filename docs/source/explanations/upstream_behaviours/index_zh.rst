@@ -71,7 +71,7 @@ anytime 模式会一直运行直到被停止
 
 *上游。* ``ANYTIME`` 模式下的搜索只在三种情况结束：到达时限、收到停止信号、或证明不存在更好的解（所有物品都已装入，或达到了界）。否则它会不断扩大搜索：``box`` 的树搜索按倍数扩大队列且没有尺寸上限；自锁定的提交（``2a598481``\ ，`fontanf/packingsolver#578 <https://github.com/fontanf/packingsolver/pull/578>`_\ ）起，``boxstacks`` 的单箱算法也如此，逐级扩大矩形子问题与三维兜底搜索的队列，并上报每一次改进。此前 ``boxstacks`` 只做一次固定扫描并自行返回，但短于该扫描（约 130 根立柱需 12 s）的时限会把扫描截在中途，并把截断的前缀当作结果上报；现在任何时限得到的都是已找到的最好的一次完整扫描。维护者在 `fontanf/packingsolver#580 <https://github.com/fontanf/packingsolver/issues/580>`_ 中确认"运行直到被停止"就是预期语义。
 
-*本包。* ``ANYTIME``\ （默认模式）求解务必传 ``time_limit``\ ：在装不满且搜索树耗不尽的实例上，``box.solve`` 与 ``boxstacks.solve`` 不传时限就永不返回。``NOT_ANYTIME_*`` 各模式仍只做一次固定扫描并自行返回，代价是时限短于该扫描时会出现上述截断。
+*本包。* ``ANYTIME``\ （默认模式）求解务必传 ``time_limit``\ ：在装不满且搜索树耗不尽的实例上，``box.solve`` 与 ``boxstacks.solve`` 不传时限就永不返回。``NOT_ANYTIME_*`` 各模式仍只做一次固定扫描并自行返回，代价是时限短于该扫描时会出现上述截断。``stop_when_unimproved_for``\ （见 :doc:`/how_to/budgets/index_zh`\ ）提供上游期望由调用方发出的那个停止信号：多少秒没有新的当前解，求解即结束。
 
 ``default`` 目标不产生任何解
 ----------------------------

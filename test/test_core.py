@@ -185,3 +185,49 @@ class TestProgressCallback:
         with pytest.raises(KeyError, match='from the callback'):
             _core.box_solve(_container_payload(), dict(self.OPTIONS, time_limit=20.0, progress_callback=explode))
         assert time.perf_counter() - started < 10.0
+
+
+@pytest.mark.unittest
+class TestStopWhenUnimproved:
+    OPTIONS = {'linear_programming_solver': 'highs'}
+
+    def test_stops_once_the_incumbent_stalls(self):
+        # boxstacks improves at ~0.2 s, ~0.7 s, ~2 s and then only after a long pass: a one-second patience
+        # ends the solve long before the 30 s limit, with a solution.
+        started = time.perf_counter()
+        raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=30.0, stop_when_unimproved_for=1.0))
+        assert time.perf_counter() - started < 15.0
+        assert raw['stop_reason'] == 'unimproved'
+        assert json.loads(raw['output'])['Solution']['NumberOfItems'] > 0
+
+    def test_after_delays_the_stop(self):
+        started = time.perf_counter()
+        raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=30.0, stop_when_unimproved_for=0.5,
+                                                              stop_when_unimproved_after=3.0))
+        elapsed = time.perf_counter() - started
+        assert 3.0 <= elapsed < 15.0
+        assert raw['stop_reason'] == 'unimproved'
+
+    def test_callback_stop_takes_precedence(self):
+        events = []
+
+        def stop_at_once(event):
+            events.append(event)
+            return False
+
+        raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=30.0, stop_when_unimproved_for=1.0,
+                                                              progress_callback=stop_at_once))
+        assert raw['stop_reason'] == 'callback'
+        assert len(events) == 1
+
+    def test_watchdog_and_callback_together(self):
+        events = []
+        raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=30.0, stop_when_unimproved_for=1.0,
+                                                              progress_callback=events.append))
+        assert raw['stop_reason'] == 'unimproved'
+        assert events and events[-1]['number_of_items'] == json.loads(raw['output'])['Solution']['NumberOfItems']
+
+    def test_not_triggered_when_the_solve_ends_first(self):
+        raw = _core.box_solve(_payload(), dict(self.OPTIONS, time_limit=2.0, stop_when_unimproved_for=5.0))
+        assert raw['stop_reason'] is None
+        assert json.loads(raw['output'])['Solution']['NumberOfItems'] == 6

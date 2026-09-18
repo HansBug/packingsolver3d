@@ -52,6 +52,25 @@ Progress and early stop
 
 How often it fires depends on the algorithm: ``box``'s anytime tree search reports every improvement, typically several per second; ``boxstacks`` reports once per queue-size level of its single-bin algorithm (a handful in the first seconds, then rarely) and once per iteration of its multi-bin one. In the ``NOT_ANYTIME_*`` modes there is usually a single event, at the end.
 
+Stopping when the search stalls
+-------------------------------
+
+.. code-block:: python
+
+   result = box.solve(instance, time_limit=120.0, stop_when_unimproved_for=10.0)
+   result.run.stop_reason      # 'unimproved' if ten seconds passed without a new incumbent, else None
+
+In ``ANYTIME`` mode the search only ends on the time limit, a stop signal or a proof of optimality (see :doc:`/explanations/upstream_behaviours/index`), so ``time_limit`` is normally the whole budget even when the incumbent stopped moving long ago. ``stop_when_unimproved_for`` adds the usual anytime termination: a watchdog thread compares upstream's clock with the time of the last improvement and raises upstream's own stop signal once the gap reaches the given number of seconds. The solve returns within milliseconds with the incumbent intact and ``result.run.stop_reason == 'unimproved'``.
+
+Until a first solution exists the clock runs from the start of the solve. ``box`` finds a first solution within about a second on most instances, but the single-bin algorithm of ``boxstacks`` reports nothing before its first pass is complete (a few seconds on a container with several hundred stacks), so give it ``stop_when_unimproved_after`` when the patience is short:
+
+.. code-block:: python
+
+   result = boxstacks.solve(instance, time_limit=120.0,
+                            stop_when_unimproved_for=5.0, stop_when_unimproved_after=15.0)
+
+Both knobs compose with ``progress_callback``: a callback that returns ``False`` wins (``stop_reason == 'callback'``), and the watchdog never calls into Python.
+
 Algorithm switches
 ------------------
 
