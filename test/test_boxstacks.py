@@ -1,6 +1,7 @@
 import pytest
 
 from packingsolver3d import (
+    ProgressEvent,
     BinType, Instance, ItemType, Objective, Rotation, StackSemanticsError, Status, UnloadingConstraint,
     UnsupportedFeatureError, boxstacks,
 )
@@ -155,3 +156,19 @@ class TestSolve:
         )
         result = boxstacks.solve(instance, time_limit=1.0)
         assert result.status in (Status.NO_SOLUTION, Status.INFEASIBLE, Status.FEASIBLE)
+
+
+@pytest.mark.unittest
+class TestProgress:
+    def test_callback_receives_every_improvement(self, container_stack_instance):
+        events = []
+        result = boxstacks.solve(container_stack_instance, time_limit=3.0, progress_callback=events.append)
+        assert events
+        assert all(isinstance(event, ProgressEvent) for event in events)
+        assert events[-1].number_of_items == len(result.placements)
+        assert result.run.stop_reason is None
+
+    def test_callback_can_stop(self, container_stack_instance):
+        result = boxstacks.solve(container_stack_instance, time_limit=20.0, progress_callback=lambda event: False)
+        assert result.run.stop_reason == 'callback'
+        assert result.run.wall_time < 10.0

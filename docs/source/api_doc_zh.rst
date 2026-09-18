@@ -23,6 +23,7 @@ API 文档
     api_doc/errors
     api_doc/model
     api_doc/result
+    api_doc/visual
 
 * :doc:`api_doc/index`
 * :doc:`api_doc/_encode`
@@ -33,3 +34,4 @@ API 文档
 * :doc:`api_doc/errors`
 * :doc:`api_doc/model`
 * :doc:`api_doc/result`
+* :doc:`api_doc/visual`

@@ -6,6 +6,9 @@
 // values.  No upstream object outlives the call, which keeps every C++
 // lifetime on this side of the boundary.
 
+#include <exception>
+#include <tuple>
+#include <memory>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -82,6 +85,90 @@ std::array<Length, 3> placed_extents(const BoxT& box, int rotation)
 // Upstream's log goes to the per-call stream handed in here (its own
 // messages_streams hook) instead of std::cout: swapping the global stream
 // buffer is not thread-safe, and calls may run concurrently.
+// Progress reporting.  Upstream calls `new_solution_callback` from
+// AlgorithmFormatter::update_solution every time the incumbent improves, on
+// whichever thread found it.  The hook turns the incumbent into a plain dict
+// (a snapshot: no upstream object crosses over), hands it to the Python
+// callable under the GIL, and stops the solve through one of the timer's end
+// booleans when the callable returns false or raises.  A raised exception is
+// kept and rethrown once optimize() has returned, so the caller sees its own
+// exception rather than a truncated result.
+struct ProgressHook
+{
+    py::object callback;
+    bool stop = false;
+    std::exception_ptr error;
+    // Upstream also fires new_solution_callback when only a bound improved
+    // (update_knapsack_bound and friends), with the incumbent unchanged; the
+    // hook reports incumbent improvements only, so it remembers what it last
+    // reported and skips a repeat.
+    bool reported = false;
+    std::tuple<std::int64_t, std::int64_t, double, double, std::string> last;
+};
+
+template <typename Parameters>
+std::shared_ptr<ProgressHook> install_progress_hook(Parameters& parameters, const py::dict& options)
+{
+    std::shared_ptr<ProgressHook> hook;
+    if (!options.contains("progress_callback") || options["progress_callback"].is_none()) {
+        return hook;
+    }
+    hook = std::make_shared<ProgressHook>();
+    hook->callback = py::reinterpret_borrow<py::object>(options["progress_callback"]);
+    parameters.timer.add_end_boolean(&hook->stop);
+    parameters.new_solution_callback = [&parameters, hook](const auto& output) {
+        const auto& best = output.solution_pool.best();
+        const std::string& label = output.solution_pool.best_label();
+        auto key = std::make_tuple(
+                static_cast<std::int64_t>(best.number_of_items()),
+                static_cast<std::int64_t>(best.number_of_bins()),
+                static_cast<double>(best.profit()),
+                static_cast<double>(best.cost()),
+                label);
+        if (hook->reported && key == hook->last) {
+            return;  // only a bound moved
+        }
+        if (best.number_of_items() == 0) {
+            return;  // a bound moved before any solution exists
+        }
+        hook->reported = true;
+        hook->last = key;
+        py::gil_scoped_acquire acquire;
+        py::dict event;
+        event["time"] = parameters.timer.elapsed_time();
+        event["number_of_items"] = best.number_of_items();
+        event["number_of_bins"] = best.number_of_bins();
+        event["profit"] = best.profit();
+        event["cost"] = best.cost();
+        event["label"] = label;
+        try {
+            py::object verdict = hook->callback(event);
+            if (!verdict.is_none() && !verdict.cast<bool>()) {
+                hook->stop = true;
+            }
+        } catch (py::error_already_set&) {
+            hook->stop = true;
+            hook->error = std::current_exception();
+        }
+    };
+    return hook;
+}
+
+// Once optimize() has returned: surface a callback exception, or record that
+// the callback stopped the solve.
+template <typename Hook>
+void finish_progress_hook(const Hook& hook, py::dict& result)
+{
+    if (hook && hook->error) {
+        std::rethrow_exception(hook->error);
+    }
+    if (hook && hook->stop) {
+        result["stop_reason"] = "callback";
+    } else {
+        result["stop_reason"] = py::none();
+    }
+}
+
 template <typename Parameters>
 void fill_common_parameters(Parameters& parameters, const py::dict& options, std::ostream& log)
 {
@@ -224,6 +311,7 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     set_switch(parameters.use_column_generation, options, "use_column_generation");
     set_switch(parameters.use_dichotomic_search, options, "use_dichotomic_search");
     set_switch(parameters.use_dual_feasible_functions, options, "use_dual_feasible_functions");
+    auto hook = install_progress_hook(parameters, options);
 
     box::Output output = [&]() {
         py::gil_scoped_release release;
@@ -256,6 +344,7 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     }
 
     py::dict result = describe_output(output, log);
+    finish_progress_hook(hook, result);
     result["bins"] = bins;
     return result;
 }
@@ -333,6 +422,7 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
     std::ostringstream log;
     boxstacks::OptimizeParameters parameters;
     fill_common_parameters(parameters, options, log);
+    auto hook = install_progress_hook(parameters, options);
 
     boxstacks::Output output = [&]() {
         py::gil_scoped_release release;
@@ -380,6 +470,7 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
     }
 
     py::dict result = describe_output(output, log);
+    finish_progress_hook(hook, result);
     result["bins"] = bins;
     return result;
 }

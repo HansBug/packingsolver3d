@@ -33,6 +33,7 @@ module tree.
     api_doc/errors
     api_doc/model
     api_doc/result
+    api_doc/visual
 
 * :doc:`api_doc/index`
 * :doc:`api_doc/_encode`
@@ -43,3 +44,4 @@ module tree.
 * :doc:`api_doc/errors`
 * :doc:`api_doc/model`
 * :doc:`api_doc/result`
+* :doc:`api_doc/visual`

@@ -27,6 +27,9 @@ Shared options
    * - ``linear_programming_solver``
      - ``linear_programming_solver_name``
      - always set; ``highs`` unless overridden for a custom build
+   * - ``progress_callback``
+     - ``new_solution_callback``
+     - called with a :class:`~packingsolver3d.result.ProgressEvent` on every improvement of the incumbent; return ``False`` to stop the solve (``RunRecord.stop_reason == 'callback'``); see :doc:`/how_to/budgets/index`
 
 ``box.solve`` switches
 ----------------------

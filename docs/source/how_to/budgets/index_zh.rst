@@ -36,6 +36,22 @@
    result = box.solve(instance, time_limit=35.0,
                       optimization_mode=OptimizationMode.NOT_ANYTIME_DETERMINISTIC)
 
+进度与提前停止
+--------------
+
+.. code-block:: python
+
+   def watch(event):
+       print(f"{event.time:6.2f} s  {event.number_of_items} items  {event.label}")
+       return event.number_of_items < 1000      # 返回 False 即停止求解
+
+   result = box.solve(instance, time_limit=60.0, progress_callback=watch)
+   result.run.stop_reason                      # watch 返回过 False 时为 'callback'，否则为 None
+
+``progress_callback`` 就是上游的 ``new_solution_callback``\ ：每次当前解改进时被调用一次，参数是一个 :class:`~packingsolver3d.result.ProgressEvent`\ ，里面是桥接层从当前解复制出来的几个数字（上游时钟上的时间、件数、箱数、利润、成本、上游给找到它的算法打的标签）。完整的摆放方案要到结束才有；事件是快照，不是句柄。返回 ``False`` 即在此停止求解，上游会在下一个节点检查停止标志，几毫秒内以当前解返回。回调里抛出的异常同样会停止求解，并在求解器返回后原样重新抛出。回调可能在上游的工作线程上运行（``box`` 的 anytime 树搜索使用多个线程），但始终持有 GIL，普通 Python 代码是安全的，只是要写得短。
+
+触发频率取决于算法：``box`` 的 anytime 树搜索每次改进都上报，通常每秒数次；``boxstacks`` 的单箱算法每个队列尺寸级别上报一次（前几秒有几次，之后很少），多箱算法每次迭代上报一次。``NOT_ANYTIME_*`` 各模式通常只在结束时有一次事件。
+
 算法开关
 --------
 

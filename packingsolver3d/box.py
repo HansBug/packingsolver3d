@@ -13,7 +13,7 @@ Overview:
 
 from typing import List, Optional
 
-from ._solve import core_options, solve_instance
+from ._solve import ProgressCallback, core_options, solve_instance
 from .errors import UnsupportedFeatureError
 from .model import Instance, OptimizationMode
 from .result import Result
@@ -79,6 +79,7 @@ def solve(
         use_dichotomic_search: Optional[bool] = None,
         use_dual_feasible_functions: Optional[bool] = None,
         linear_programming_solver: Optional[str] = None,
+        progress_callback: Optional[ProgressCallback] = None,
 ) -> Result:
     """
     Solve a 3D bin packing instance with the ``box`` solver.
@@ -112,6 +113,12 @@ def solve(
     :param linear_programming_solver: Override the linear programming backend
         name.  Only useful against a custom build; the bundled module has HiGHS
         only.
+    :param progress_callback: Called with a
+        :class:`~packingsolver3d.result.ProgressEvent` each time the incumbent
+        improves, possibly from one of upstream's worker threads.  Return
+        ``False`` to stop the solve early (``result.run.stop_reason`` is then
+        ``'callback'``); an exception raised inside it stops the solve and is
+        re-raised unchanged.
     :return: The :class:`~packingsolver3d.result.Result`.
     :raise UnsupportedFeatureError: When the instance needs stacking support.
     :raise InvalidInstanceError: When the instance is structurally invalid, or
@@ -152,4 +159,4 @@ def solve(
         if value is not None:
             options[name] = bool(value)
 
-    return solve_instance('box', instance, options)
+    return solve_instance('box', instance, options, progress_callback=progress_callback)

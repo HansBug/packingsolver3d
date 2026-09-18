@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 
@@ -26,7 +27,8 @@ class TestModule:
 
     def test_box_roundtrip(self):
         raw = _core.box_solve(_payload(), {'time_limit': 2.0, 'linear_programming_solver': 'highs'})
-        assert set(raw) == {'output', 'stdout', 'stderr', 'bins'}
+        assert set(raw) == {'output', 'stdout', 'stderr', 'bins', 'stop_reason'}
+        assert raw['stop_reason'] is None
         output = json.loads(raw['output'])
         assert output['Solution']['NumberOfItems'] == 6
         assert output['BinPackingBound'] == 1
@@ -138,3 +140,48 @@ class TestModule:
         with pytest.raises(ValueError) as exc_info:
             _core.box_solve(_payload(bins=[{'x': 10, 'y': 10, 'z': 10, 'copies': 1, 'copies_min': 2}]), {})
         assert 'copies_min' in str(exc_info.value)
+
+
+def _container_payload():
+    cargo = [(530, 290, 370, 300, 8), (530, 230, 290, 300, 6), (430, 210, 270, 400, 4), (1200, 800, 1200, 24, 450),
+             (1200, 1000, 1150, 12, 1100)]
+    return _payload(
+        objective='knapsack',
+        bins=[{'x': 12032, 'y': 2352, 'z': 2698, 'cost': 1, 'copies': 1, 'maximum_weight': 26460.0}],
+        items=[{'x': x, 'y': y, 'z': z, 'copies': c, 'weight': float(w), 'rotations': ['XYZ', 'YXZ'], 'stackability_id': i}
+               for i, (x, y, z, c, w) in enumerate(cargo)],
+    )
+
+
+@pytest.mark.unittest
+class TestProgressCallback:
+    OPTIONS = {'linear_programming_solver': 'highs'}
+
+    def test_events_are_plain_dicts(self):
+        events = []
+        raw = _core.box_solve(_payload(), dict(self.OPTIONS, time_limit=2.0, progress_callback=events.append))
+        assert events
+        assert set(events[0]) == {'time', 'number_of_items', 'number_of_bins', 'profit', 'cost', 'label'}
+        assert isinstance(events[0]['label'], str)
+        assert events[-1]['number_of_items'] == json.loads(raw['output'])['Solution']['NumberOfItems']
+        assert raw['stop_reason'] is None
+
+    def test_none_callback_is_ignored(self):
+        raw = _core.box_solve(_payload(), dict(self.OPTIONS, progress_callback=None))
+        assert raw['stop_reason'] is None
+
+    def test_returning_false_stops_the_solve(self):
+        # Without the callback this anytime solve runs to its 20 s limit.
+        started = time.perf_counter()
+        raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=20.0, progress_callback=lambda event: False))
+        assert time.perf_counter() - started < 10.0
+        assert raw['stop_reason'] == 'callback'
+        assert json.loads(raw['output'])['Solution']['NumberOfItems'] > 0
+
+    def test_exception_stops_and_propagates(self):
+        def explode(event):
+            raise KeyError('from the callback')
+        started = time.perf_counter()
+        with pytest.raises(KeyError, match='from the callback'):
+            _core.box_solve(_container_payload(), dict(self.OPTIONS, time_limit=20.0, progress_callback=explode))
+        assert time.perf_counter() - started < 10.0

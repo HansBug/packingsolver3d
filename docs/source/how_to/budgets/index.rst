@@ -36,6 +36,22 @@ Optimisation modes
    result = box.solve(instance, time_limit=35.0,
                       optimization_mode=OptimizationMode.NOT_ANYTIME_DETERMINISTIC)
 
+Progress and early stop
+-----------------------
+
+.. code-block:: python
+
+   def watch(event):
+       print(f"{event.time:6.2f} s  {event.number_of_items} items  {event.label}")
+       return event.number_of_items < 1000      # False stops the solve
+
+   result = box.solve(instance, time_limit=60.0, progress_callback=watch)
+   result.run.stop_reason                      # 'callback' if watch returned False, else None
+
+``progress_callback`` is upstream's ``new_solution_callback``: it runs every time the incumbent improves, with a :class:`~packingsolver3d.result.ProgressEvent` holding the few numbers the bridge copies out of the incumbent (time on upstream's clock, items, bins, profit, cost, upstream's label for the algorithm that found it). The full packing is not available before the end; the event is a snapshot, not a handle. Return ``False`` to stop the solve at that point -- upstream checks the stop flag at its next node, so the solve returns within milliseconds with the incumbent as its result. An exception raised inside the callback stops the solve the same way and is re-raised unchanged once the solver has returned. The callback may run on one of upstream's worker threads (``box``'s anytime tree search uses several); it always holds the GIL, so plain Python code is safe, but keep it short.
+
+How often it fires depends on the algorithm: ``box``'s anytime tree search reports every improvement, typically several per second; ``boxstacks`` reports once per queue-size level of its single-bin algorithm (a handful in the first seconds, then rarely) and once per iteration of its multi-bin one. In the ``NOT_ANYTIME_*`` modes there is usually a single event, at the end.
+
 Algorithm switches
 ------------------
 

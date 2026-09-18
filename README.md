@@ -102,6 +102,8 @@ print(result.status, result.number_of_bins, len(result.bins[0].stacks))   # Stat
 
 Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of silently dropping the stacking fields, which is what the upstream CSV reader would do. Every result can be drawn with `plot_result(result, color_by='stack')`; see the [visualisation guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/visualization/index.html).
 
+Long solves can be watched, and stopped, through `progress_callback`: it is called with a `ProgressEvent` (time, items, bins, profit, cost, upstream's label) on every improvement, and returning `False` ends the solve with the current incumbent (`result.run.stop_reason == 'callback'`). See the [budgets guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/budgets/index.html).
+
 ## Scope
 
 PackingSolver covers several problem families. This package deliberately exposes only the two 3D ones:

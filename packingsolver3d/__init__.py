@@ -30,7 +30,7 @@ from .errors import InvalidInstanceError, PackingSolverError, SolverFailedError,
     UnsupportedFeatureError
 from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, \
     OptimizationMode, Rotation, SemiTrailerTruck, UnloadingConstraint
-from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
+from .result import PackedBin, Placement, ProgressEvent, Result, RunRecord, Stack, Status
 
 __all__ = [
     'ALL_ROTATIONS',
@@ -44,6 +44,7 @@ __all__ = [
     'PackedBin',
     'PackingSolverError',
     'Placement',
+    'ProgressEvent',
     'Result',
     'Rotation',
     'RunRecord',
