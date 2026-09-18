@@ -66,6 +66,13 @@ Anytime runs are not reproducible run to run
 
 *Package.* Use ``OptimizationMode.NOT_ANYTIME_DETERMINISTIC`` (or ``NOT_ANYTIME_SEQUENTIAL``, which upstream's own tests use) when two runs must agree, and always record ``result.run.options``.
 
+Anytime mode runs until it is stopped
+-------------------------------------
+
+*Upstream.* In ``ANYTIME`` mode the search only ends on the time limit, on a stop signal, or once it has proved that no better solution exists (every item packed, or the bound reached). Otherwise it keeps widening its search: ``box``'s tree search doubles its queue without an upper size, and since the pinned commit (``2a598481``, `fontanf/packingsolver#578 <https://github.com/fontanf/packingsolver/pull/578>`_) the single-bin algorithm of ``boxstacks`` does the same, growing the queues of its rectangle subproblem and of its 3D fallback level by level and reporting every improvement. Before that commit ``boxstacks`` ran one fixed pass and returned by itself, but a time limit shorter than that pass (about 12 s for 130 stacks) cut the pass in the middle and reported the truncated prefix as the result; now any time limit yields the best complete pass found so far. The maintainer confirmed in `fontanf/packingsolver#580 <https://github.com/fontanf/packingsolver/issues/580>`_ that running until stopped is the intended semantics.
+
+*Package.* Always pass ``time_limit`` to ``ANYTIME`` solves (the default mode): on an instance that does not pack fully and whose search tree is not exhausted, ``box.solve`` and ``boxstacks.solve`` never return without one. The ``NOT_ANYTIME_*`` modes still run a single fixed pass and return on their own, at the cost of the truncation above when the limit is shorter than the pass.
+
 The ``default`` objective produces no solution
 ----------------------------------------------
 
