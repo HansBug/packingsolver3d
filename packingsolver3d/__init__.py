@@ -26,6 +26,7 @@ Overview:
 
 from . import box, boxstacks
 from .config.meta import __VERSION__ as __version__
+from .estimate import TimeBudget, algorithm_path, count_stacks, instance_features, recommend_time_budget
 from .errors import InvalidInstanceError, PackingSolverError, SolverFailedError, StackSemanticsError, \
     UnsupportedFeatureError
 from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, \
@@ -53,8 +54,13 @@ __all__ = [
     'Stack',
     'StackSemanticsError',
     'Status',
+    'TimeBudget',
     'UnloadingConstraint',
     'UnsupportedFeatureError',
+    'algorithm_path',
     'box',
     'boxstacks',
+    'count_stacks',
+    'instance_features',
+    'recommend_time_budget',
 ]

@@ -27,10 +27,12 @@ module tree.
     api_doc/index
     api_doc/_encode
     api_doc/_solve
+    api_doc/_time_budget_constants
     api_doc/box
     api_doc/boxstacks
     api_doc/config/index
     api_doc/errors
+    api_doc/estimate
     api_doc/model
     api_doc/result
     api_doc/visual
@@ -38,10 +40,12 @@ module tree.
 * :doc:`api_doc/index`
 * :doc:`api_doc/_encode`
 * :doc:`api_doc/_solve`
+* :doc:`api_doc/_time_budget_constants`
 * :doc:`api_doc/box`
 * :doc:`api_doc/boxstacks`
 * :doc:`api_doc/config/index`
 * :doc:`api_doc/errors`
+* :doc:`api_doc/estimate`
 * :doc:`api_doc/model`
 * :doc:`api_doc/result`
 * :doc:`api_doc/visual`

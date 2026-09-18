@@ -104,6 +104,8 @@ Passing that instance to `box.solve` raises `UnsupportedFeatureError` instead of
 
 Long solves can be watched, and stopped, through `progress_callback`: it is called with a `ProgressEvent` (time, items, bins, profit, cost, upstream's label) on every improvement, and returning `False` ends the solve with the current incumbent (`result.run.stop_reason == 'callback'`). `stop_when_unimproved_for=10.0` ends an anytime solve once ten seconds have passed without a new incumbent (`stop_reason == 'unimproved'`), which is the termination anytime search normally needs on top of a time limit. See the [budgets guide](https://packingsolver3d.readthedocs.io/en/latest/how_to/budgets/index.html).
 
+Not sure how long to wait? `recommend_time_budget(instance, solver='box')` returns a `TimeBudget` -- a `time_limit` that is a loose upper bound plus matching `stop_when_unimproved_*` knobs -- from a model fitted on 3158 recorded improvement curves, one formula per upstream algorithm path (`algorithm_path` tells you which one your instance takes). `alpha=4` balances quality against waiting, `alpha=8` leans towards quality; `speed` rescales for your machine. Pass `**budget.as_options()` to `solve`. The model and its limits are explained in the docs under *Explanations / How the time budget is estimated*.
+
 ## Scope
 
 PackingSolver covers several problem families. This package deliberately exposes only the two 3D ones:
