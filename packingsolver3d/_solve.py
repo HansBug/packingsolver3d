@@ -154,6 +154,8 @@ def core_options(
         verbosity_level: int = 0,
         optimization_mode: Optional[OptimizationMode] = None,
         linear_programming_solver: Optional[str] = None,
+        stop_when_unimproved_for: Optional[float] = None,
+        stop_when_unimproved_after: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Render the options both solvers accept.
@@ -173,7 +175,16 @@ def core_options(
     :param optimization_mode: Anytime versus fixed-schedule search.
     :param linear_programming_solver: Override for the LP backend name.  Only
         useful against a custom build.
+    :param stop_when_unimproved_for: Seconds without a new incumbent after
+        which the solve is stopped; ``None`` leaves the search to the time
+        limit alone.
+    :param stop_when_unimproved_after: Seconds from the start before that
+        stop may fire; ``None`` means ``0``.  Only meaningful together with
+        ``stop_when_unimproved_for``.
     :return: The rendered options.
+    :raise ValueError: When ``stop_when_unimproved_for`` is not positive, or
+        ``stop_when_unimproved_after`` is negative or given without
+        ``stop_when_unimproved_for``.
 
     Example::
 
@@ -182,6 +193,12 @@ def core_options(
         {'verbosity_level': 0, 'linear_programming_solver': 'highs'}
         >>> core_options(time_limit=5, memory_limit=1024)['time_limit']
         5.0
+        >>> core_options(stop_when_unimproved_for=5, stop_when_unimproved_after=10)['stop_when_unimproved_after']
+        10.0
+        >>> core_options(stop_when_unimproved_for=0)
+        Traceback (most recent call last):
+            ...
+        ValueError: stop_when_unimproved_for must be positive, got 0
     """
     options = {
         'verbosity_level': int(verbosity_level),
@@ -193,6 +210,16 @@ def core_options(
         options['memory_limit'] = int(memory_limit)
     if optimization_mode is not None:
         options['optimization_mode'] = optimization_mode.value
+    if stop_when_unimproved_for is not None:
+        if not stop_when_unimproved_for > 0:
+            raise ValueError('stop_when_unimproved_for must be positive, got {value!r}'.format(value=stop_when_unimproved_for))
+        options['stop_when_unimproved_for'] = float(stop_when_unimproved_for)
+    if stop_when_unimproved_after is not None:
+        if stop_when_unimproved_for is None:
+            raise ValueError('stop_when_unimproved_after needs stop_when_unimproved_for')
+        if stop_when_unimproved_after < 0:
+            raise ValueError('stop_when_unimproved_after must not be negative, got {value!r}'.format(value=stop_when_unimproved_after))
+        options['stop_when_unimproved_after'] = float(stop_when_unimproved_after)
     return options
 
 

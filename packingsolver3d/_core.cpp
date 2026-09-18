@@ -7,6 +7,11 @@
 // lifetime on this side of the boundary.
 
 #include <exception>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
+#include <atomic>
 #include <tuple>
 #include <memory>
 #include <pybind11/pybind11.h>
@@ -85,38 +90,69 @@ std::array<Length, 3> placed_extents(const BoxT& box, int rotation)
 // Upstream's log goes to the per-call stream handed in here (its own
 // messages_streams hook) instead of std::cout: swapping the global stream
 // buffer is not thread-safe, and calls may run concurrently.
-// Progress reporting.  Upstream calls `new_solution_callback` from
-// AlgorithmFormatter::update_solution every time the incumbent improves, on
-// whichever thread found it.  The hook turns the incumbent into a plain dict
-// (a snapshot: no upstream object crosses over), hands it to the Python
-// callable under the GIL, and stops the solve through one of the timer's end
-// booleans when the callable returns false or raises.  A raised exception is
-// kept and rethrown once optimize() has returned, so the caller sees its own
-// exception rather than a truncated result.
-struct ProgressHook
+// Hooks on a solve: progress reporting and the stagnation watchdog.
+//
+// Upstream calls `new_solution_callback` from AlgorithmFormatter::update_solution
+// every time the incumbent improves, on whichever thread found it, and also
+// when only a bound moved (update_knapsack_bound and friends).  The hook keeps
+// what it last saw and acts on incumbent improvements only.  On each one it
+// (1) records the time for the watchdog and (2) if a Python callable was
+// given, turns the incumbent into a plain dict (a snapshot: no upstream object
+// crosses over) and calls it under the GIL; a falsy return value or an
+// exception stops the solve through an end boolean registered on upstream's
+// timer, and the exception is kept and rethrown once optimize() has returned.
+//
+// The watchdog is a side thread that never touches Python: every 50 ms it
+// compares the time of the last improvement with upstream's clock and flips
+// its own end boolean once `stop_when_unimproved_for` seconds have passed
+// without one (and `stop_when_unimproved_after` seconds since the start).
+// It is upstream's own stop signal, the same one a time limit raises; nothing
+// is killed or interrupted from outside.
+struct SolveHooks
 {
+    // Progress callback.
     py::object callback;
-    bool stop = false;
+    bool stop_callback = false;
     std::exception_ptr error;
-    // Upstream also fires new_solution_callback when only a bound improved
-    // (update_knapsack_bound and friends), with the incumbent unchanged; the
-    // hook reports incumbent improvements only, so it remembers what it last
-    // reported and skips a repeat.
     bool reported = false;
     std::tuple<std::int64_t, std::int64_t, double, double, std::string> last;
+
+    // Stagnation watchdog.
+    double unimproved_for = 0.0;    // <= 0: watchdog off
+    double unimproved_after = 0.0;
+    bool stop_unimproved = false;
+    const optimizationtools::Timer* timer = nullptr;
+    std::atomic<double> last_improvement{0.0};
+    std::mutex mutex;
+    std::condition_variable wake;
+    bool done = false;
+    std::thread thread;
+
+    bool has_watchdog() const { return unimproved_for > 0.0; }
 };
 
 template <typename Parameters>
-std::shared_ptr<ProgressHook> install_progress_hook(Parameters& parameters, const py::dict& options)
+std::shared_ptr<SolveHooks> install_hooks(Parameters& parameters, const py::dict& options)
 {
-    std::shared_ptr<ProgressHook> hook;
-    if (!options.contains("progress_callback") || options["progress_callback"].is_none()) {
-        return hook;
+    bool has_callback = options.contains("progress_callback") && !options["progress_callback"].is_none();
+    double unimproved_for = 0.0;
+    read(options, "stop_when_unimproved_for", unimproved_for);
+    std::shared_ptr<SolveHooks> hooks;
+    if (!has_callback && unimproved_for <= 0.0) {
+        return hooks;
     }
-    hook = std::make_shared<ProgressHook>();
-    hook->callback = py::reinterpret_borrow<py::object>(options["progress_callback"]);
-    parameters.timer.add_end_boolean(&hook->stop);
-    parameters.new_solution_callback = [&parameters, hook](const auto& output) {
+    hooks = std::make_shared<SolveHooks>();
+    hooks->timer = &parameters.timer;
+    if (has_callback) {
+        hooks->callback = py::reinterpret_borrow<py::object>(options["progress_callback"]);
+        parameters.timer.add_end_boolean(&hooks->stop_callback);
+    }
+    if (unimproved_for > 0.0) {
+        hooks->unimproved_for = unimproved_for;
+        read(options, "stop_when_unimproved_after", hooks->unimproved_after);
+        parameters.timer.add_end_boolean(&hooks->stop_unimproved);
+    }
+    parameters.new_solution_callback = [&parameters, hooks](const auto& output) {
         const auto& best = output.solution_pool.best();
         const std::string& label = output.solution_pool.best_label();
         auto key = std::make_tuple(
@@ -125,45 +161,80 @@ std::shared_ptr<ProgressHook> install_progress_hook(Parameters& parameters, cons
                 static_cast<double>(best.profit()),
                 static_cast<double>(best.cost()),
                 label);
-        if (hook->reported && key == hook->last) {
+        if (hooks->reported && key == hooks->last) {
             return;  // only a bound moved
         }
         if (best.number_of_items() == 0) {
             return;  // a bound moved before any solution exists
         }
-        hook->reported = true;
-        hook->last = key;
+        hooks->reported = true;
+        hooks->last = key;
+        double now = parameters.timer.elapsed_time();
+        hooks->last_improvement.store(now);
+        if (!hooks->callback) {
+            return;
+        }
         py::gil_scoped_acquire acquire;
         py::dict event;
-        event["time"] = parameters.timer.elapsed_time();
+        event["time"] = now;
         event["number_of_items"] = best.number_of_items();
         event["number_of_bins"] = best.number_of_bins();
         event["profit"] = best.profit();
         event["cost"] = best.cost();
         event["label"] = label;
         try {
-            py::object verdict = hook->callback(event);
+            py::object verdict = hooks->callback(event);
             if (!verdict.is_none() && !verdict.cast<bool>()) {
-                hook->stop = true;
+                hooks->stop_callback = true;
             }
         } catch (py::error_already_set&) {
-            hook->stop = true;
-            hook->error = std::current_exception();
+            hooks->stop_callback = true;
+            hooks->error = std::current_exception();
         }
     };
-    return hook;
+    return hooks;
 }
 
-// Once optimize() has returned: surface a callback exception, or record that
-// the callback stopped the solve.
-template <typename Hook>
-void finish_progress_hook(const Hook& hook, py::dict& result)
+// Start the watchdog thread, if any.  Called just before optimize().
+template <typename Hooks>
+void start_hooks(const Hooks& hooks)
 {
-    if (hook && hook->error) {
-        std::rethrow_exception(hook->error);
+    if (!hooks || !hooks->has_watchdog()) {
+        return;
     }
-    if (hook && hook->stop) {
+    hooks->thread = std::thread([hooks]() {
+        std::unique_lock<std::mutex> lock(hooks->mutex);
+        while (!hooks->done) {
+            hooks->wake.wait_for(lock, std::chrono::milliseconds(50));
+            double now = hooks->timer->elapsed_time();
+            if (now >= hooks->unimproved_after
+                    && now - hooks->last_improvement.load() >= hooks->unimproved_for) {
+                hooks->stop_unimproved = true;
+            }
+        }
+    });
+}
+
+// Once optimize() has returned: stop the watchdog, surface a callback
+// exception, and record why the solve ended early, if it did.
+template <typename Hooks>
+void finish_hooks(const Hooks& hooks, py::dict& result)
+{
+    if (hooks && hooks->thread.joinable()) {
+        {
+            std::lock_guard<std::mutex> lock(hooks->mutex);
+            hooks->done = true;
+        }
+        hooks->wake.notify_all();
+        hooks->thread.join();
+    }
+    if (hooks && hooks->error) {
+        std::rethrow_exception(hooks->error);
+    }
+    if (hooks && hooks->stop_callback) {
         result["stop_reason"] = "callback";
+    } else if (hooks && hooks->stop_unimproved) {
+        result["stop_reason"] = "unimproved";
     } else {
         result["stop_reason"] = py::none();
     }
@@ -311,7 +382,8 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     set_switch(parameters.use_column_generation, options, "use_column_generation");
     set_switch(parameters.use_dichotomic_search, options, "use_dichotomic_search");
     set_switch(parameters.use_dual_feasible_functions, options, "use_dual_feasible_functions");
-    auto hook = install_progress_hook(parameters, options);
+    auto hooks = install_hooks(parameters, options);
+    start_hooks(hooks);
 
     box::Output output = [&]() {
         py::gil_scoped_release release;
@@ -344,7 +416,7 @@ py::dict box_solve(const py::dict& instance_spec, const py::dict& options)
     }
 
     py::dict result = describe_output(output, log);
-    finish_progress_hook(hook, result);
+    finish_hooks(hooks, result);
     result["bins"] = bins;
     return result;
 }
@@ -422,7 +494,8 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
     std::ostringstream log;
     boxstacks::OptimizeParameters parameters;
     fill_common_parameters(parameters, options, log);
-    auto hook = install_progress_hook(parameters, options);
+    auto hooks = install_hooks(parameters, options);
+    start_hooks(hooks);
 
     boxstacks::Output output = [&]() {
         py::gil_scoped_release release;
@@ -470,7 +543,7 @@ py::dict boxstacks_solve(const py::dict& instance_spec, const py::dict& options)
     }
 
     py::dict result = describe_output(output, log);
-    finish_progress_hook(hook, result);
+    finish_hooks(hooks, result);
     result["bins"] = bins;
     return result;
 }

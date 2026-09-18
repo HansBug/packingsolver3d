@@ -13,6 +13,32 @@ Overview:
     general 3D benchmarks ``box`` solves, ``boxstacks`` frequently returns no
     solution, and it exposes none of ``box``'s algorithm switches.  Use it when
     the problem genuinely has stacking rules; use ``box`` otherwise.
+
+    Watching and bounding a long solve: ``progress_callback`` sees every new
+    incumbent and ``stop_when_unimproved_for`` ends the run once the search
+    has stalled, with the incumbent as the result.  A 40' HQ container with
+    five cargo types and 1036 items does not pack fully, so the anytime search
+    would otherwise run to its time limit.  The single-bin algorithm reports
+    nothing before its first pass is done, and the stall clock runs from the
+    start until then, so ``stop_when_unimproved_after`` covers that first pass.
+
+    Example::
+
+        >>> from packingsolver3d import BinType, Instance, ItemType, Objective, Rotation, boxstacks
+        >>> cargo = [(530, 290, 370, 300, 8), (530, 230, 290, 300, 6), (430, 210, 270, 400, 4),
+        ...          (1200, 800, 1200, 24, 450), (1200, 1000, 1150, 12, 1100)]
+        >>> container = Instance(
+        ...     bin_types=[BinType(x=12032, y=2352, z=2698, maximum_weight=26460)],
+        ...     item_types=[ItemType(x=x, y=y, z=z, copies=copies, weight=weight, stackability_id=index,
+        ...                          rotations=(Rotation.XYZ, Rotation.YXZ))
+        ...                 for index, (x, y, z, copies, weight) in enumerate(cargo)],
+        ...     objective=Objective.KNAPSACK,
+        ... )
+        >>> improvements = []
+        >>> result = boxstacks.solve(container, time_limit=60.0, progress_callback=improvements.append,
+        ...                          stop_when_unimproved_for=1.0, stop_when_unimproved_after=3.0)
+        >>> result.run.stop_reason, len(improvements) > 0, improvements[-1].number_of_items == len(result.placements)
+        ('unimproved', True, True)
 """
 
 from typing import Dict, FrozenSet, Optional, Tuple
@@ -126,6 +152,8 @@ def solve(
         unloading_constraint: Optional[UnloadingConstraint] = None,
         linear_programming_solver: Optional[str] = None,
         progress_callback: Optional[ProgressCallback] = None,
+        stop_when_unimproved_for: Optional[float] = None,
+        stop_when_unimproved_after: Optional[float] = None,
 ) -> Result:
     """
     Solve a stacked 3D bin packing instance with the ``boxstacks`` solver.
@@ -164,6 +192,15 @@ def solve(
         iteration of the multi-bin one).  Return ``False`` to stop the solve
         early (``result.run.stop_reason`` is then ``'callback'``); an exception
         raised inside it stops the solve and is re-raised unchanged.
+    :param stop_when_unimproved_for: Stop once this many seconds have passed
+        without a new incumbent (``result.run.stop_reason`` is then
+        ``'unimproved'``).  This is upstream's own stop signal, the same one a
+        time limit raises, so the incumbent is returned intact.  Until a first
+        solution exists the clock runs from the start of the solve, and the
+        single-bin algorithm reports nothing before its first pass is done, so
+        cover that with ``stop_when_unimproved_after``.
+    :param stop_when_unimproved_after: Do not apply that stop before this many
+        seconds have elapsed since the start.  ``None`` means ``0``.
     :return: The :class:`~packingsolver3d.result.Result`.  Bins carry
         :attr:`~packingsolver3d.result.PackedBin.stacks` here, which ``box``
         results never do.
@@ -211,6 +248,8 @@ def solve(
         verbosity_level=verbosity_level,
         optimization_mode=optimization_mode,
         linear_programming_solver=linear_programming_solver,
+        stop_when_unimproved_for=stop_when_unimproved_for,
+        stop_when_unimproved_after=stop_when_unimproved_after,
     )
     return solve_instance('boxstacks', instance, options, unloading_constraint=unloading_constraint,
                           progress_callback=progress_callback)

@@ -27,6 +27,12 @@ Shared options
    * - ``linear_programming_solver``
      - ``linear_programming_solver_name``
      - always set; ``highs`` unless overridden for a custom build
+   * - ``stop_when_unimproved_for``
+     - an end boolean on ``timer`` (raised by a watchdog thread)
+     - seconds without a new incumbent after which the solve stops with ``RunRecord.stop_reason == 'unimproved'``; the clock runs from the start until a first solution exists
+   * - ``stop_when_unimproved_after``
+     - same watchdog
+     - seconds from the start before that stop may fire (default ``0``); needs ``stop_when_unimproved_for``
    * - ``progress_callback``
      - ``new_solution_callback``
      - called with a :class:`~packingsolver3d.result.ProgressEvent` on every improvement of the incumbent; return ``False`` to stop the solve (``RunRecord.stop_reason == 'callback'``); see :doc:`/how_to/budgets/index`

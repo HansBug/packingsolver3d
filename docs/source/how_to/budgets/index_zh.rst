@@ -52,6 +52,25 @@
 
 触发频率取决于算法：``box`` 的 anytime 树搜索每次改进都上报，通常每秒数次；``boxstacks`` 的单箱算法每个队列尺寸级别上报一次（前几秒有几次，之后很少），多箱算法每次迭代上报一次。``NOT_ANYTIME_*`` 各模式通常只在结束时有一次事件。
 
+搜索停滞时自动停止
+------------------
+
+.. code-block:: python
+
+   result = box.solve(instance, time_limit=120.0, stop_when_unimproved_for=10.0)
+   result.run.stop_reason      # 十秒没有新的当前解则为 'unimproved'，否则为 None
+
+``ANYTIME`` 模式下搜索只在到达时限、收到停止信号或证明最优时结束（见 :doc:`/explanations/upstream_behaviours/index_zh`\ ），所以哪怕当前解早已不再变化，``time_limit`` 通常也会被整个用完。``stop_when_unimproved_for`` 补上 anytime 求解惯用的终止条件：一个看门狗线程把上游的时钟与最近一次改进的时间作比较，间隔达到给定秒数时发出上游自己的停止信号。求解在几毫秒内返回，当前解完整保留，``result.run.stop_reason == 'unimproved'``\ 。
+
+在首个解出现之前，计时从求解开始算。``box`` 在多数实例上一秒左右就有首个解，但 ``boxstacks`` 的单箱算法在第一轮扫描完成前不会上报任何东西（几百根立柱的集装箱要几秒），耐心值较短时请配 ``stop_when_unimproved_after``\ ：
+
+.. code-block:: python
+
+   result = boxstacks.solve(instance, time_limit=120.0,
+                            stop_when_unimproved_for=5.0, stop_when_unimproved_after=15.0)
+
+两个参数可与 ``progress_callback`` 组合：回调返回 ``False`` 优先（``stop_reason == 'callback'``\ ），看门狗线程从不进入 Python。
+
 算法开关
 --------
 

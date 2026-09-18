@@ -78,6 +78,21 @@ class TestCoreOptions:
             'time_limit': 3.0, 'memory_limit': 512, 'optimization_mode': 'not-anytime',
         }
 
+    def test_stop_when_unimproved(self):
+        options = _solve.core_options(stop_when_unimproved_for=5, stop_when_unimproved_after=10)
+        assert options['stop_when_unimproved_for'] == 5.0 and options['stop_when_unimproved_after'] == 10.0
+        assert 'stop_when_unimproved_after' not in _solve.core_options(stop_when_unimproved_for=5)
+
+    @pytest.mark.parametrize('kwargs, message', [
+        (dict(stop_when_unimproved_for=0), 'must be positive'),
+        (dict(stop_when_unimproved_for=-1.5), 'must be positive'),
+        (dict(stop_when_unimproved_after=3), 'needs stop_when_unimproved_for'),
+        (dict(stop_when_unimproved_for=2, stop_when_unimproved_after=-1), 'must not be negative'),
+    ])
+    def test_stop_when_unimproved_validation(self, kwargs, message):
+        with pytest.raises(ValueError, match=message):
+            _solve.core_options(**kwargs)
+
 
 @pytest.mark.unittest
 class TestSolveInstance:

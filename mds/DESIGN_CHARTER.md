@@ -9,6 +9,8 @@ Status: draft, pre-implementation. Written 2026-09-09. This document is the agre
 
 > **Amendment (2026-09-18, progress callback).** Rule 3 said "no partial-result callback in v1". Anytime solves of both engines report every improvement through upstream's `new_solution_callback`, and a desktop front end needs that signal to show progress and to stop a run that has stopped improving. `progress_callback` therefore exists, with the value-in / value-out spirit kept: the callback receives an immutable `ProgressEvent` made of numbers copied out of the incumbent, it can return `False` to stop, and nothing else -- no partial packing, no solver object -- ever crosses the bridge before the solve ends.
 
+> **Amendment (2026-09-18, stagnation stop).** Upstream's anytime mode runs until a time limit, a stop signal or a proof (fontanf/packingsolver#580), and expects the caller to supply the stop signal. `stop_when_unimproved_for` / `stop_when_unimproved_after` do that from inside the bridge with a watchdog thread that only raises upstream's own end boolean; rule 7 (no hidden kill layer) is kept, since nothing is interrupted from outside and the incumbent is returned intact.
+
 ## 1. Scope decision: box **and** boxstacks
 
 The candidate scope reduction "boxstacks only, drop box" is rejected. The measured evidence in the companion research repository (`~/packing-software-study`) points the other way: `box` is the mandatory engine and `boxstacks` is the conditional sidecar.

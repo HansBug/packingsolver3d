@@ -172,3 +172,18 @@ class TestProgress:
         result = boxstacks.solve(container_stack_instance, time_limit=20.0, progress_callback=lambda event: False)
         assert result.run.stop_reason == 'callback'
         assert result.run.wall_time < 10.0
+
+
+@pytest.mark.unittest
+class TestStopWhenUnimproved:
+    def test_stops_when_stalled(self, container_stack_instance):
+        result = boxstacks.solve(container_stack_instance, time_limit=30.0, stop_when_unimproved_for=1.5)
+        assert result.run.stop_reason == 'unimproved'
+        assert result.run.wall_time < 20.0
+        assert len(result.placements) > 0
+        assert result.run.options['stop_when_unimproved_for'] == 1.5
+
+    def test_after_is_honoured(self, container_stack_instance):
+        result = boxstacks.solve(container_stack_instance, time_limit=30.0, stop_when_unimproved_for=0.5, stop_when_unimproved_after=4.0)
+        assert result.run.stop_reason == 'unimproved'
+        assert result.run.wall_time >= 4.0
