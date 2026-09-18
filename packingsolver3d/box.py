@@ -88,9 +88,10 @@ def solve(
     process of their own.
 
     :param instance: The instance to solve.
-    :param time_limit: Seconds of search.  ``None`` lets the solver run to its
-        own completion, which on a non-trivial instance means indefinitely --
-        pass a limit for anything but tiny inputs.
+    :param time_limit: Seconds of search.  ``None`` lets the solver run until
+        it proves optimality; in the default ``ANYTIME`` mode that means
+        indefinitely on any instance that does not pack fully, so pass a
+        limit for anything but tiny inputs.
     :param memory_limit: Mebibytes the solver may use.  Checked by upstream at
         its own checkpoints; there is no hard limit.
     :param verbosity_level: Upstream's ``verbosity_level``; the log ends up in

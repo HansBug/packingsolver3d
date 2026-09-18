@@ -36,7 +36,7 @@ __UPSTREAM_URL__ = 'https://github.com/fontanf/packingsolver'
 
 #: Upstream commit the bundled executables are built from.
 #: Keep this in sync with the ``upstream/packingsolver`` submodule pointer.
-__UPSTREAM_COMMIT__ = '3f4faae1a4bc42e2276c5729878933010d37ca14'
+__UPSTREAM_COMMIT__ = '2a5984810b694910e7681464c71f893c28416cce'
 
 #: Linear programming backend compiled into the bundled executables.
 #:
