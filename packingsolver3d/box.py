@@ -136,6 +136,23 @@ def solve(
         >>> result = box.solve(instance, time_limit=2.0)
         >>> result.number_of_bins
         1
+
+        Watching a solve: the callback receives one
+        :class:`~packingsolver3d.result.ProgressEvent` per improvement, and the
+        last one describes the returned packing.
+
+        >>> seen = []
+        >>> result = box.solve(instance, time_limit=2.0, progress_callback=seen.append)
+        >>> seen[-1].number_of_items == len(result.placements), result.run.stop_reason
+        (True, None)
+
+        Stopping early: returning ``False`` ends the solve with the incumbent.
+
+        >>> def good_enough(event):
+        ...     return event.number_of_items < 6      # False once everything is packed
+        >>> result = box.solve(instance, time_limit=2.0, progress_callback=good_enough)
+        >>> len(result.placements), result.run.stop_reason
+        (6, 'callback')
     """
     validate(instance)
 

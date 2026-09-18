@@ -189,6 +189,19 @@ def solve(
         1
         >>> len(result.bins[0].stacks) > 0
         True
+
+        Watching a solve, and stopping it: the callback receives one
+        :class:`~packingsolver3d.result.ProgressEvent` per improvement;
+        returning ``False`` ends the solve with the incumbent.
+
+        >>> seen = []
+        >>> result = boxstacks.solve(instance, time_limit=2.0, progress_callback=seen.append)
+        >>> seen[-1].number_of_items == len(result.placements), result.run.stop_reason
+        (True, None)
+        >>> result = boxstacks.solve(instance, time_limit=2.0,
+        ...                          progress_callback=lambda event: event.number_of_items < 6)
+        >>> len(result.placements), result.run.stop_reason
+        (6, 'callback')
     """
     validate(instance)
 
