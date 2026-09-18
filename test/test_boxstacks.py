@@ -177,7 +177,9 @@ class TestProgress:
 @pytest.mark.unittest
 class TestStopWhenUnimproved:
     def test_stops_when_stalled(self, container_stack_instance):
-        result = boxstacks.solve(container_stack_instance, time_limit=30.0, stop_when_unimproved_for=1.5)
+        # First solution within 0.3 s here; stop_when_unimproved_after keeps the stop clear of it on slow runners.
+        result = boxstacks.solve(container_stack_instance, time_limit=30.0, stop_when_unimproved_for=1.5,
+                                 stop_when_unimproved_after=3.0)
         assert result.run.stop_reason == 'unimproved'
         assert result.run.wall_time < 20.0
         assert len(result.placements) > 0
