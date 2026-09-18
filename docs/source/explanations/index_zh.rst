@@ -9,6 +9,7 @@
 * :doc:`architecture/index_zh` —— 上游 C++ 如何被编进扩展模块、什么东西跨越边界、这对隔离与生命周期意味着什么。
 * :doc:`statuses/index_zh` —— ``OPTIMAL``、``FEASIBLE``、``NO_SOLUTION``、``INFEASIBLE`` 在这里的含义，以及为什么达到值与报告的界必须分开。
 * :doc:`upstream_behaviours/index_zh` —— 锁定提交上会影响结果的上游 PackingSolver 行为，每条都附证据与本包的处理方式。
+* :doc:`time_budget/index_zh` —— ``recommend_time_budget`` 如何把实例变成时限：每条上游算法路径一个公式，在 3158 条记录曲线上拟合，用 F-beta 式的 ``alpha`` 权衡质量与等待。
 
 .. toctree::
     :maxdepth: 1
@@ -17,3 +18,4 @@
     architecture/index_zh
     statuses/index_zh
     upstream_behaviours/index_zh
+    time_budget/index_zh

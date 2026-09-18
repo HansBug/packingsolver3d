@@ -9,6 +9,7 @@ Pages
 * :doc:`architecture/index` -- how the upstream C++ is compiled into the extension module, what crosses the boundary, and what that implies for isolation and lifetimes.
 * :doc:`statuses/index` -- what ``OPTIMAL``, ``FEASIBLE``, ``NO_SOLUTION`` and ``INFEASIBLE`` mean here, and why the achieved value and the reported bound are kept apart.
 * :doc:`upstream_behaviours/index` -- the behaviours of upstream PackingSolver at the pinned commit that affect results, with the evidence for each and what the package does about it.
+* :doc:`time_budget/index` -- how ``recommend_time_budget`` turns an instance into a time limit: one formula per upstream algorithm path, fitted on 3158 recorded curves, with an F-beta style ``alpha`` for quality versus waiting.
 
 .. toctree::
     :maxdepth: 1
@@ -17,3 +18,4 @@ Pages
     architecture/index
     statuses/index
     upstream_behaviours/index
+    time_budget/index
