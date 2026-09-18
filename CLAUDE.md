@@ -19,7 +19,7 @@ Build-system adaptations happen from the outside, in the top-level `CMakeLists.t
 ## Non-Negotiable Rules
 
 1. **No Python object owns C++ memory.** The bridge takes plain dicts and returns plain dicts; no upstream object outlives the call, and no handle, pointer, buffer view or reference into solver memory is ever exposed.
-2. **Value in, value out.** Public models are frozen dataclasses. There is no mutable session, live solver handle or partial-result callback.
+2. **Value in, value out.** Public models are frozen dataclasses. There is no mutable session or live solver handle. The one thing that reaches the caller before the solve ends is `progress_callback`, and it only ever receives an immutable `ProgressEvent` (a handful of numbers copied out of the incumbent) and may only stop the solve; no solver object, partial solution or handle crosses over.
 3. **Every solve is auditable.** A `Result` always carries its `RunRecord`: problem type, the exact options handed to the bridge, upstream's captured stdout and stderr, and the wall time. Never drop these to make a result smaller.
 4. **A solver-reported bound is never relabelled as proven optimal.** `Status.OPTIMAL` requires a bound reported for the requested objective and an achieved value meeting it. Heuristic incumbent, reported bound and proof are three distinct things; keep them distinct in code, tests and docs.
 5. **Never build with both LP backends disabled.** The module is built with `PACKINGSOLVER_USE_CLP=OFF PACKINGSOLVER_USE_HIGHS=ON`, recorded in `CMakeLists.txt`, `config/meta.py` (`__LP_SOLVER__`) and `NOTICE.md`. Because upstream defaults the solver name to `CLP` and throws when no matching backend was compiled in, `linear_programming_solver` is set on every call.
@@ -32,7 +32,7 @@ Build-system adaptations happen from the outside, in the top-level `CMakeLists.t
 
 ## Bridge Contract
 
-`packingsolver3d._core` exposes `box_solve(instance, options)` and `boxstacks_solve(instance, options)`. Both take the payload built by `packingsolver3d._encode.instance_payload` and the options built by `packingsolver3d._solve.core_options`, and return `{"output": <upstream Output JSON as a string>, "stdout": str, "stderr": str, "bins": [...]}`. Keep the three pieces in step.
+`packingsolver3d._core` exposes `box_solve(instance, options)` and `boxstacks_solve(instance, options)`. Both take the payload built by `packingsolver3d._encode.instance_payload` and the options built by `packingsolver3d._solve.core_options`, and return `{"output": <upstream Output JSON as a string>, "stdout": str, "stderr": str, "bins": [...], "stop_reason": None | "callback"}`. Keep the three pieces in step. The options may carry one non-JSON entry, `progress_callback`: a Python callable the bridge wires to upstream's `new_solution_callback`; it is called under the GIL with a plain dict (`time, number_of_items, number_of_bins, profit, cost, label`) and a falsy return value or an exception flips an end boolean on upstream's timer (the exception is rethrown after `optimize()` returns). `_solve.solve_instance` wraps the user's callable so events arrive as `ProgressEvent`, exceptions are re-raised unchanged after the solve, and the callable never appears in `RunRecord.options`.
 
 | Payload key | Content |
 |---|---|

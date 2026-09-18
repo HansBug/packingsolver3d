@@ -1,11 +1,9 @@
-:orphan:
-
-packingsolver3d.\_solve
+packingsolver3d.visual
 ========================================================
 
-.. currentmodule:: packingsolver3d._solve
+.. currentmodule:: packingsolver3d.visual
 
-.. automodule:: packingsolver3d._solve
+.. automodule:: packingsolver3d.visual
 
 
 \_\_all\_\_
@@ -14,19 +12,19 @@ packingsolver3d.\_solve
 .. autodata:: __all__
 
 
-ProgressCallback
+COLOR\_KEYS
 -----------------------------------------------------
 
-.. autodata:: ProgressCallback
+.. autodata:: COLOR_KEYS
 
 
-core\_options
+plot\_bin
 -----------------------------------------------------
 
-.. autofunction:: core_options
+.. autofunction:: plot_bin
 
 
-solve\_instance
+plot\_result
 -----------------------------------------------------
 
-.. autofunction:: solve_instance
+.. autofunction:: plot_result

@@ -7,6 +7,8 @@ Status: draft, pre-implementation. Written 2026-09-09. This document is the agre
 
 > **Amendment (2026-09-09).** The delivery model changed from "bundle the upstream executables and drive them through a subprocess" to "compile upstream together with a pybind11 bridge into one extension module, `packingsolver3d._core`". The value-in / value-out surface, the frozen models, the status rules and the submodule boundary are unchanged; what changed is that every solve now runs in-process, `time_limit` / `memory_limit` are upstream's own checks rather than a wall-clock guard and an `RLIMIT_AS`, and a crash inside upstream is no longer contained by a process boundary. Sections below that describe executables, CSV files, `_runner.py` or `RunRecord.argv` are historical; the tree in section 4 and `CLAUDE.md` are authoritative.
 
+> **Amendment (2026-09-18, progress callback).** Rule 3 said "no partial-result callback in v1". Anytime solves of both engines report every improvement through upstream's `new_solution_callback`, and a desktop front end needs that signal to show progress and to stop a run that has stopped improving. `progress_callback` therefore exists, with the value-in / value-out spirit kept: the callback receives an immutable `ProgressEvent` made of numbers copied out of the incumbent, it can return `False` to stop, and nothing else -- no partial packing, no solver object -- ever crosses the bridge before the solve ends.
+
 ## 1. Scope decision: box **and** boxstacks
 
 The candidate scope reduction "boxstacks only, drop box" is rejected. The measured evidence in the companion research repository (`~/packing-software-study`) points the other way: `box` is the mandatory engine and `boxstacks` is the conditional sidecar.
@@ -156,7 +158,7 @@ Layout, `setup.py` metadata-via-`config/meta.py`, `requirements-*.txt` groups, `
 
 1. **Upstream is a submodule and is never patched.** `upstream/packingsolver/` may only move its version pointer. A needed fix goes upstream as a pull request (four are already merged: #540-#543); until it lands, adapt the wrapper or document the limitation.
 2. **No Python object owns C++ memory.** The only artifacts crossing the boundary are files and process exit statuses. No handle, pointer, buffer view, or reference into solver memory is ever exposed.
-3. **Value-in / value-out.** Public models are frozen dataclasses. There is no mutable session, no live solver handle, no partial-result callback in v1.
+3. **Value-in / value-out.** Public models are frozen dataclasses. There is no mutable session and no live solver handle. `progress_callback` (added 2026-09-18) is the one channel open during a solve: it delivers immutable `ProgressEvent` snapshots and can stop the solve, nothing more.
 4. **Every solve is auditable.** A result always carries argv, exit code, stdout, stderr, timings, the upstream commit, and the binary SHA-256, so any published number can be reproduced.
 5. **A solver-reported bound is never relabelled as proven optimal.** Heuristic incumbent, reported bound, and proof are three distinct statuses.
 6. **Never build or ship with both LP backends disabled**; the chosen combination is recorded in `config/meta.py` and `NOTICE.md`.
@@ -179,4 +181,4 @@ Note on platform coverage: upstream ships no macOS arm64 release binary, so an a
 
 ## 7. Deliberately out of scope for v1
 
-Pure-Python fallback solver; a mutable solver session or streaming/anytime callbacks; the four non-3D problem types; visualization; an in-process pybind11 extension; a CLI of our own (upstream's is not being replaced).
+Pure-Python fallback solver; a mutable solver session (a progress/stop callback delivering immutable snapshots was added in 0.0.3, see the amendment above); the four non-3D problem types; visualization; an in-process pybind11 extension; a CLI of our own (upstream's is not being replaced).

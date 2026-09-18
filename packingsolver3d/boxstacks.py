@@ -17,7 +17,7 @@ Overview:
 
 from typing import Dict, FrozenSet, Optional, Tuple
 
-from ._solve import core_options, solve_instance
+from ._solve import ProgressCallback, core_options, solve_instance
 from .errors import StackSemanticsError, UnsupportedFeatureError
 from .model import Instance, ItemType, OptimizationMode, Rotation, UnloadingConstraint
 from .result import Result
@@ -125,6 +125,7 @@ def solve(
         optimization_mode: Optional[OptimizationMode] = None,
         unloading_constraint: Optional[UnloadingConstraint] = None,
         linear_programming_solver: Optional[str] = None,
+        progress_callback: Optional[ProgressCallback] = None,
 ) -> Result:
     """
     Solve a stacked 3D bin packing instance with the ``boxstacks`` solver.
@@ -157,6 +158,12 @@ def solve(
 
     :param linear_programming_solver: Override the linear programming backend
         name.  The bundled module has HiGHS only.
+    :param progress_callback: Called with a
+        :class:`~packingsolver3d.result.ProgressEvent` each time the incumbent
+        improves (one per queue-size level of the single-bin algorithm, one per
+        iteration of the multi-bin one).  Return ``False`` to stop the solve
+        early (``result.run.stop_reason`` is then ``'callback'``); an exception
+        raised inside it stops the solve and is re-raised unchanged.
     :return: The :class:`~packingsolver3d.result.Result`.  Bins carry
         :attr:`~packingsolver3d.result.PackedBin.stacks` here, which ``box``
         results never do.
@@ -192,4 +199,5 @@ def solve(
         optimization_mode=optimization_mode,
         linear_programming_solver=linear_programming_solver,
     )
-    return solve_instance('boxstacks', instance, options, unloading_constraint=unloading_constraint)
+    return solve_instance('boxstacks', instance, options, unloading_constraint=unloading_constraint,
+                          progress_callback=progress_callback)

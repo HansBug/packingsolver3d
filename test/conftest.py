@@ -1,7 +1,7 @@
 import pytest
 from hbutils.testing import TextAligner
 
-from packingsolver3d import BinType, Defect, Instance, ItemType, Objective
+from packingsolver3d import BinType, Defect, Instance, ItemType, Objective, Rotation
 
 
 @pytest.fixture(scope="session")
@@ -46,3 +46,32 @@ def defect_instance(stack_instance):
         objective=stack_instance.objective,
         defects=[Defect(bin_type_id=0, x=0, y=0, lx=10, ly=10)],
     )
+
+
+# A 40' HQ container with five cargo types (three carton sizes, loaded EUR pallets, IBC tanks), 1036 items, knapsack:
+# more items than fit and a search tree the anytime algorithms do not exhaust, so a solve keeps improving until its time
+# limit -- the instance to use when a test needs the solver to still be running when something happens.
+_CONTAINER_CARGO = [(530, 290, 370, 300, 8), (530, 230, 290, 300, 6), (430, 210, 270, 400, 4),
+                    (1200, 800, 1200, 24, 450), (1200, 1000, 1150, 12, 1100)]
+
+
+def _container(stacked):
+    items = []
+    for index, (x, y, z, copies, weight) in enumerate(_CONTAINER_CARGO):
+        extra = {'stackability_id': index} if stacked else {}
+        items.append(ItemType(x=x, y=y, z=z, copies=copies, weight=weight, rotations=(Rotation.XYZ, Rotation.YXZ), **extra))
+    return Instance(
+        bin_types=[BinType(x=12032, y=2352, z=2698, copies=1, cost=1, maximum_weight=26460)],
+        item_types=items,
+        objective=Objective.KNAPSACK,
+    )
+
+
+@pytest.fixture()
+def container_instance():
+    return _container(False)
+
+
+@pytest.fixture()
+def container_stack_instance():
+    return _container(True)

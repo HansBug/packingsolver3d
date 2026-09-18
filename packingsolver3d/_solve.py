@@ -12,15 +12,20 @@ Overview:
 import json
 import math
 import time
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from ._encode import instance_payload
 from .config.meta import __LP_SOLVER__
 from .errors import InvalidInstanceError, SolverFailedError
 from .model import Instance, Objective, OptimizationMode, Rotation, UnloadingConstraint
-from .result import PackedBin, Placement, Result, RunRecord, Stack, Status
+from .result import PackedBin, Placement, ProgressEvent, Result, RunRecord, Stack, Status
 
-__all__ = ['solve_instance']
+__all__ = ['solve_instance', 'ProgressCallback']
+
+#: Signature of the ``progress_callback`` of both solvers: it receives one
+#: :class:`~packingsolver3d.result.ProgressEvent` per improvement and may return
+#: ``False`` to stop the solve; any other return value continues it.
+ProgressCallback = Callable[[ProgressEvent], Optional[bool]]
 
 #: How each objective reads its achieved value and its reported bound.
 #:
@@ -220,19 +225,82 @@ def _decode_bins(raw_bins: Sequence[Dict[str, Any]]) -> Tuple[PackedBin, ...]:
     return tuple(bins)
 
 
+def _forward_progress(
+        progress_callback: ProgressCallback,
+        failure: List[BaseException],
+) -> Callable[[Dict[str, Any]], bool]:
+    """
+    Wrap a user's progress callback for the bridge.
+
+    The bridge calls the returned function with a plain dict on every
+    improvement, on whichever thread found it.  The wrapper turns the dict into
+    a :class:`~packingsolver3d.result.ProgressEvent`, answers ``True`` to
+    continue and ``False`` to stop, keeps an exception raised by the user's
+    callback in ``failure`` (the caller re-raises it once the solver has
+    returned) and, once a stop was requested for either reason, answers
+    ``False`` to any later event without calling the user again -- upstream's
+    worker threads may still report an improvement between the request and
+    the actual stop.
+
+    :param progress_callback: The user's callback.
+    :param failure: List that receives the exception, if the callback raises.
+    :return: The function handed to the bridge.
+
+    Example::
+
+        >>> from packingsolver3d._solve import _forward_progress
+        >>> seen, failure = [], []
+        >>> forward = _forward_progress(lambda event: seen.append(event.number_of_items) is None and event.number_of_items < 5, failure)
+        >>> forward({'time': 0.1, 'number_of_items': 3, 'number_of_bins': 1, 'profit': 3.0, 'cost': 1.0, 'label': 'a'})
+        True
+        >>> forward({'time': 0.2, 'number_of_items': 5, 'number_of_bins': 1, 'profit': 5.0, 'cost': 1.0, 'label': 'b'})
+        False
+        >>> forward({'time': 0.3, 'number_of_items': 6, 'number_of_bins': 1, 'profit': 6.0, 'cost': 1.0, 'label': 'c'})
+        False
+        >>> seen, failure
+        ([3, 5], [])
+    """
+    state = {'stopped': False}
+
+    def forward(event: Dict[str, Any]) -> bool:
+        if state['stopped']:
+            return False
+        try:
+            keep_going = progress_callback(ProgressEvent(**event)) is not False
+        except BaseException as err:  # kept for the caller, re-raised unchanged once the solver has stopped
+            failure.append(err)
+            keep_going = False
+        if not keep_going:
+            state['stopped'] = True
+        return keep_going
+
+    return forward
+
+
 def solve_instance(
         problem_type: str,
         instance: Instance,
         options: Dict[str, Any],
         unloading_constraint: Optional[UnloadingConstraint] = None,
+        progress_callback: Optional[ProgressCallback] = None,
 ) -> Result:
     """
     Encode an instance, run the native solver in-process and decode the result.
 
+    The progress callback is wrapped before it reaches the bridge: every event
+    dict becomes a :class:`~packingsolver3d.result.ProgressEvent`, an exception
+    raised by the callback is kept aside, the solve is stopped, and the
+    exception is re-raised here unchanged once the solver has returned -- so a
+    ``ValueError`` from user code is never mistaken for one of upstream's.
+
     :param problem_type: ``'box'`` or ``'boxstacks'``.
     :param instance: The instance to solve, already validated by the caller.
-    :param options: Fully rendered options, see :func:`core_options`.
+    :param options: Fully rendered options, see :func:`core_options`.  They are
+        recorded as-is in the :class:`RunRecord`; the callback is not part of
+        them.
     :param unloading_constraint: Override for the instance's own setting.
+    :param progress_callback: Called on every improvement of the incumbent;
+        return ``False`` to stop the solve.
     :return: The decoded :class:`~packingsolver3d.result.Result`.
     :raise InvalidInstanceError: When upstream's ``InstanceBuilder`` rejects
         the instance; the message is upstream's own.
@@ -246,9 +314,13 @@ def solve_instance(
         runs. Sixteen threads solving at once is part of the test suite.
     """
     payload = instance_payload(instance, unloading_constraint)
+    native_options = dict(options)
+    failure = []  # type: List[BaseException]
+    if progress_callback is not None:
+        native_options['progress_callback'] = _forward_progress(progress_callback, failure)
     started = time.perf_counter()
     try:
-        raw = _solver(problem_type)(payload, options)
+        raw = _solver(problem_type)(payload, native_options)
     except ValueError as err:
         # std::invalid_argument from InstanceBuilder: the input is at fault.
         raise InvalidInstanceError('{problem_type}: {err}'.format(problem_type=problem_type, err=err))
@@ -260,6 +332,8 @@ def solve_instance(
             '{problem_type} solver failed: {err}'.format(problem_type=problem_type, err=err), run=record,
         )
     wall_time = time.perf_counter() - started
+    if failure:
+        raise failure[0]
 
     output = json.loads(raw['output'])
     bins = _decode_bins(raw['bins'])
@@ -269,6 +343,7 @@ def solve_instance(
         stdout=raw['stdout'],
         stderr=raw['stderr'],
         wall_time=wall_time,
+        stop_reason=raw.get('stop_reason'),
     )
 
     status, value, bound = _classify(instance.objective, output, bins)

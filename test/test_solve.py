@@ -1,8 +1,8 @@
 import pytest
 
 from packingsolver3d import (
-    BinType, Instance, InvalidInstanceError, ItemType, Objective, OptimizationMode, PackedBin, Rotation, SolverFailedError,
-    Status,
+    BinType, Instance, InvalidInstanceError, ItemType, Objective, OptimizationMode, PackedBin, ProgressEvent, Rotation,
+    SolverFailedError, Status,
 )
 from packingsolver3d import _solve
 from packingsolver3d.result import Result
@@ -186,3 +186,72 @@ class TestConcurrency:
         assert not errors
         assert len(results) == 32
         assert set(results) == {1}
+
+
+class _Boom(Exception):
+    pass
+
+
+@pytest.mark.unittest
+class TestProgressCallback:
+    def test_events_are_snapshots(self, box_instance):
+        events = []
+        result = _solve.solve_instance('box', box_instance, _solve.core_options(time_limit=2.0), progress_callback=events.append)
+        assert events and all(isinstance(event, ProgressEvent) for event in events)
+        assert events[-1].number_of_items == len(result.placements)
+        assert 'progress_callback' not in result.run.options
+        assert result.run.stop_reason is None
+
+    def test_false_stops_and_is_recorded(self, container_stack_instance):
+        result = _solve.solve_instance('boxstacks', container_stack_instance, _solve.core_options(time_limit=20.0),
+                                       progress_callback=lambda event: False)
+        assert result.run.stop_reason == 'callback'
+        assert result.run.wall_time < 10.0
+        assert len(result.placements) > 0
+
+    def test_exception_is_reraised_unchanged(self, container_stack_instance):
+        def explode(event):
+            raise _Boom('mine')
+        with pytest.raises(_Boom, match='mine'):
+            _solve.solve_instance('boxstacks', container_stack_instance, _solve.core_options(time_limit=20.0),
+                                  progress_callback=explode)
+
+    def test_value_error_is_not_mistaken_for_upstream(self, box_instance):
+        def explode(event):
+            raise ValueError('not from InstanceBuilder')
+        with pytest.raises(ValueError, match='not from InstanceBuilder'):
+            _solve.solve_instance('box', box_instance, _solve.core_options(time_limit=2.0), progress_callback=explode)
+
+
+@pytest.mark.unittest
+class TestForwardProgress:
+    EVENT = {'time': 0.5, 'number_of_items': 7, 'number_of_bins': 1, 'profit': 7.0, 'cost': 1.0, 'label': 'TSMS n 1'}
+
+    def test_none_and_true_continue(self):
+        seen, failure = [], []
+        forward = _solve._forward_progress(seen.append, failure)
+        assert forward(dict(self.EVENT)) is True
+        assert forward(dict(self.EVENT)) is True
+        assert len(seen) == 2 and isinstance(seen[0], ProgressEvent) and seen[0].label == 'TSMS n 1'
+        assert failure == []
+
+    def test_false_stops_and_later_events_are_not_delivered(self):
+        seen, failure = [], []
+        forward = _solve._forward_progress(lambda event: seen.append(event) is None and False, failure)
+        assert forward(dict(self.EVENT)) is False
+        assert forward(dict(self.EVENT)) is False
+        assert len(seen) == 1
+        assert failure == []
+
+    def test_exception_is_kept_and_stops(self):
+        seen, failure = [], []
+
+        def explode(event):
+            seen.append(event)
+            raise _Boom('kept')
+
+        forward = _solve._forward_progress(explode, failure)
+        assert forward(dict(self.EVENT)) is False
+        assert forward(dict(self.EVENT)) is False
+        assert len(seen) == 1
+        assert len(failure) == 1 and isinstance(failure[0], _Boom)

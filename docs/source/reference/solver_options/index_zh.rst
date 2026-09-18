@@ -27,6 +27,9 @@
    * - ``linear_programming_solver``
      - ``linear_programming_solver_name``
      - 总是设置；除自定义构建外为 ``highs``
+   * - ``progress_callback``
+     - ``new_solution_callback``
+     - 每次当前解改进时以一个 :class:`~packingsolver3d.result.ProgressEvent` 调用；返回 ``False`` 可提前停止求解（此时 ``RunRecord.stop_reason == 'callback'``\ ）；见 :doc:`/how_to/budgets/index_zh`
 
 ``box.solve`` 的开关
 --------------------

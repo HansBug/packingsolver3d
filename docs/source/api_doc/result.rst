@@ -44,7 +44,14 @@ RunRecord
 -----------------------------------------------------
 
 .. autoclass:: RunRecord
-    :members: problem_type,options,stdout,stderr,wall_time
+    :members: problem_type,options,stdout,stderr,wall_time,stop_reason
+
+
+ProgressEvent
+-----------------------------------------------------
+
+.. autoclass:: ProgressEvent
+    :members: time,number_of_items,number_of_bins,profit,cost,label
 
 
 Result

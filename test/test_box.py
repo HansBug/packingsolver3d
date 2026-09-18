@@ -3,6 +3,7 @@ import json
 import pytest
 
 from packingsolver3d import (
+    ProgressEvent,
     BinType, Instance, ItemType, Objective, OptimizationMode, Rotation, Status, UnsupportedFeatureError, box,
 )
 
@@ -120,3 +121,19 @@ class TestSolve:
         assert len(document['bins']) == 1
         assert len(document['bins'][0]['placements']) == 10
         assert 'run' not in document, 'RunRecord carries absolute paths and stays out of golden files'
+
+
+@pytest.mark.unittest
+class TestProgress:
+    def test_callback_receives_every_improvement(self, container_instance):
+        events = []
+        result = box.solve(container_instance, time_limit=3.0, progress_callback=events.append)
+        assert events
+        assert all(isinstance(event, ProgressEvent) for event in events)
+        assert events[-1].number_of_items == len(result.placements)
+        assert result.run.stop_reason is None
+
+    def test_callback_can_stop(self, container_instance):
+        result = box.solve(container_instance, time_limit=20.0, progress_callback=lambda event: False)
+        assert result.run.stop_reason == 'callback'
+        assert result.run.wall_time < 10.0

@@ -24,6 +24,7 @@ __all__ = [
     'PackedBin',
     'RunRecord',
     'Result',
+    'ProgressEvent',
 ]
 
 
@@ -178,13 +179,16 @@ class RunRecord:
     :param stderr: Reserved; always empty, since upstream reports failures
         through exceptions rather than standard error.
     :param wall_time: Seconds the call took, measured from Python.
+    :param stop_reason: Why the solve ended before upstream's own end, or
+        ``None``: ``'callback'`` when the :func:`~packingsolver3d.box.solve`
+        ``progress_callback`` returned ``False``.
 
     Example::
 
         >>> from packingsolver3d import RunRecord
         >>> record = RunRecord(problem_type='box', options={'time_limit': 2.0}, stdout='', stderr='', wall_time=0.01)
-        >>> record.options['time_limit']
-        2.0
+        >>> record.options['time_limit'], record.stop_reason
+        (2.0, None)
     """
 
     problem_type: str
@@ -192,6 +196,46 @@ class RunRecord:
     stdout: str
     stderr: str
     wall_time: float
+    stop_reason: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ProgressEvent:
+    """
+    One improvement of the incumbent, as reported by upstream while it solves.
+
+    Upstream's ``AlgorithmFormatter::update_solution`` fires its
+    ``new_solution_callback`` each time the best solution improves; the bridge
+    copies the few numbers below out of the incumbent and hands them to the
+    ``progress_callback`` of :func:`~packingsolver3d.box.solve` and
+    :func:`~packingsolver3d.boxstacks.solve`.  The event is a snapshot, not a
+    handle: no solver object is reachable from it, and the full packing only
+    exists in the final :class:`Result`.
+
+    :param time: Seconds since the solve started, on upstream's timer.
+    :param number_of_items: Items in the incumbent.
+    :param number_of_bins: Bins used by the incumbent.
+    :param profit: Item profit of the incumbent (item volume unless profits
+        were given).
+    :param cost: Bin cost of the incumbent.
+    :param label: Upstream's own tag for the algorithm that found it, for
+        example ``'TSMS n 4'`` (box tree search, queue 4) or ``'SOR it 0 g 32'``
+        (boxstacks, growth factor 32); informative only.
+
+    Example::
+
+        >>> from packingsolver3d import ProgressEvent
+        >>> event = ProgressEvent(time=0.2, number_of_items=1020, number_of_bins=1, profit=6.1e10, cost=1.0, label='SOR it 0 g 1')
+        >>> event.number_of_items
+        1020
+    """
+
+    time: float
+    number_of_items: int
+    number_of_bins: int
+    profit: float
+    cost: float
+    label: str
 
 
 @dataclass(frozen=True)
