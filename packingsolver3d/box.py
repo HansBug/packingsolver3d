@@ -15,8 +15,9 @@ Overview:
     has stalled, with the incumbent as the result.  A 40' HQ container with
     five cargo types and 1036 items does not pack fully, so the anytime search
     would otherwise run to its time limit.  The tree search needs about a
-    second before its first solution, and the stall clock runs from the start
-    until then, so ``stop_when_unimproved_after`` covers that first second.
+    second before its first solution (several on a slow machine), and the
+    stall clock runs from the start until then, so ``stop_when_unimproved_after``
+    keeps the stop well clear of it.
 
     Example::
 
@@ -31,7 +32,7 @@ Overview:
         ... )
         >>> improvements = []
         >>> result = box.solve(container, time_limit=60.0, progress_callback=improvements.append,
-        ...                    stop_when_unimproved_for=1.5, stop_when_unimproved_after=5.0)
+        ...                    stop_when_unimproved_for=1.5, stop_when_unimproved_after=6.0)
         >>> result.run.stop_reason, len(improvements) > 0, improvements[-1].number_of_items == len(result.placements)
         ('unimproved', True, True)
 """
