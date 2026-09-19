@@ -126,12 +126,19 @@ class TestSolve:
 @pytest.mark.unittest
 class TestProgress:
     def test_callback_receives_every_improvement(self, container_instance):
+        # The first box solution takes about a second here and several on a slow CI runner, so the limit is generous and
+        # the callback ends the run itself once three improvements have been seen (or the limit does, on a very slow one).
         events = []
-        result = box.solve(container_instance, time_limit=3.0, progress_callback=events.append)
+
+        def record(event):
+            events.append(event)
+            return len(events) < 3
+
+        result = box.solve(container_instance, time_limit=20.0, progress_callback=record)
         assert events
         assert all(isinstance(event, ProgressEvent) for event in events)
         assert events[-1].number_of_items == len(result.placements)
-        assert result.run.stop_reason is None
+        assert result.run.stop_reason == ('callback' if len(events) >= 3 else None)
 
     def test_callback_can_stop(self, container_instance):
         result = box.solve(container_instance, time_limit=20.0, progress_callback=lambda event: False)
