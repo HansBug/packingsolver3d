@@ -24,10 +24,16 @@ def main(campaign_path, scale, out_path, calib_note):
              'experiments/time_budget/README.md: %d anytime runs on upstream PackingSolver %s (bischoff1995, davies1999,' % (len(recs), upstream),
              'egeblad2009, loh1992, ivancic1989, a ROADEF 2022 sample, synthetic container loads and the Stowly demo).',
              f'Reference machine: {cpu}, Linux, one solve per core; {calib_note}', '"""', '',
+             '#: Upstream commit, number of recorded runs, date and CPU of the campaign the constants were fitted on.',
              'REFERENCE = ' + json.dumps('upstream %s, %d runs, %s, %s' % (upstream, len(recs), time.strftime('%Y-%m-%d'), cpu)), '',
+             '#: Grid of ``alpha`` values at which the improvement tables are tabulated; values in between are interpolated in log(alpha).',
              f'ALPHAS = {json.dumps(sorted(model.ALPHAS))}', '',
-             f'MIN_LATENCY = {model.MIN_LATENCY}', f'BLOCK_TYPES = {model.BLOCK_TYPES}', '',
-             '# (solver, path) -> latency regression in log space, block-generation step, and the alpha tables of the improvement term.',
+             '#: Floor of the predicted first-solution latency, in seconds (below this the bridge overhead dominates).',
+             f'MIN_LATENCY = {model.MIN_LATENCY}',
+             '#: Number of item types from which the TSMS block-generation step is charged (the block cap is reached).',
+             f'BLOCK_TYPES = {model.BLOCK_TYPES}', '',
+             '#: ``(solver, path)`` -> latency regression ``beta`` (log space: intercept, log size, log types[, overfull]), TSMS ``block`` step,',
+             '#: per-path calibration ``scale``, and the ``alpha`` tables ``m`` (multiple of the latency) and ``add`` (seconds) of the improvement term.',
              'PATHS = {']
     for key, e in sorted(M.items()):
         lines.append(f'    ({key[0]!r}, {key[1]!r}): {{')

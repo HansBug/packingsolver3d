@@ -1,19 +1,24 @@
 """Fitted constants of :mod:`packingsolver3d.estimate` -- generated, do not edit by hand.
 
-Generated 2026-09-18 by experiments/time_budget/export_constants.py from the campaign described in
+Generated 2026-09-19 by experiments/time_budget/export_constants.py from the campaign described in
 experiments/time_budget/README.md: 3158 anytime runs on upstream PackingSolver 2a598481 (bischoff1995, davies1999,
 egeblad2009, loh1992, ivancic1989, a ROADEF 2022 sample, synthetic container loads and the Stowly demo).
 Reference machine: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz, Linux, one solve per core; times rescaled to the idle machine by a per-path calibration on 80 instances (load inflation: TSMS 2.31x, SOR 1.91x, SSK 1.14x, boxstacks SVC 1.12x, others 2.17x)
 """
 
-REFERENCE = "upstream 2a598481, 3158 runs, 2026-09-18, 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz"
+#: Upstream commit, number of recorded runs, date and CPU of the campaign the constants were fitted on.
+REFERENCE = "upstream 2a598481, 3158 runs, 2026-09-19, 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz"
 
+#: Grid of ``alpha`` values at which the improvement tables are tabulated; values in between are interpolated in log(alpha).
 ALPHAS = [0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]
 
+#: Floor of the predicted first-solution latency, in seconds (below this the bridge overhead dominates).
 MIN_LATENCY = 0.2
+#: Number of item types from which the TSMS block-generation step is charged (the block cap is reached).
 BLOCK_TYPES = 4
 
-# (solver, path) -> latency regression in log space, block-generation step, and the alpha tables of the improvement term.
+#: ``(solver, path)`` -> latency regression ``beta`` (log space: intercept, log size, log types[, overfull]), TSMS ``block`` step,
+#: per-path calibration ``scale``, and the ``alpha`` tables ``m`` (multiple of the latency) and ``add`` (seconds) of the improvement term.
 PATHS = {
     ('box', 'SSK'): {
         'n': 55, 'growth': False, 'coverage': 0.98, 'rmse_log': 1.054,
