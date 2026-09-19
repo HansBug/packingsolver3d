@@ -139,6 +139,13 @@ class TestRecommendTimeBudget:
         assert budget.stop_when_unimproved_after == pytest.approx(budget.latency)
         assert budget.stop_when_unimproved_for == estimate.MIN_PATIENCE
 
+    def test_default_alpha_depends_on_the_solver(self, container_instance, container_stack_instance):
+        assert estimate.DEFAULT_ALPHA == {'box': 4.0, 'boxstacks': 8.0}
+        assert recommend_time_budget(container_instance, 'box').alpha == 4.0
+        assert recommend_time_budget(container_instance, 'box', alpha=None).alpha == 4.0
+        assert recommend_time_budget(container_stack_instance, 'boxstacks').alpha == 8.0
+        assert recommend_time_budget(container_stack_instance, 'boxstacks') == recommend_time_budget(container_stack_instance, 'boxstacks', alpha=8.0)
+
     def test_alpha_moves_only_the_improvement_window(self, container_instance):
         balanced = recommend_time_budget(container_instance, alpha=4.0)
         quality = recommend_time_budget(container_instance, alpha=8.0)

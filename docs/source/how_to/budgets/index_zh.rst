@@ -78,16 +78,16 @@
 
    from packingsolver3d import recommend_time_budget
 
-   budget = recommend_time_budget(instance, solver='box')          # alpha=4.0：均衡
+   budget = recommend_time_budget(instance, solver='box')          # alpha 默认 box 为 4、boxstacks 为 8
    result = box.solve(instance, **budget.as_options())
    budget.time_limit, budget.stop_when_unimproved_for, budget.stop_when_unimproved_after, budget.path
 
 :func:`~packingsolver3d.recommend_time_budget` 把实例变成一个 :class:`~packingsolver3d.TimeBudget`：一个作为宽松上限的 ``time_limit``，加上上文的两个停滞停止参数，让多数求解远在上限之前就结束。数字来自在 3158 条记录下来的改进曲线（上游的基准族、ROADEF 2022 抽样、合成集装箱货载）上拟合的模型，:doc:`/explanations/time_budget/index_zh` 有解释。两个旋钮：
 
-* ``alpha`` 像 F-beta 权衡召回与精确那样权衡质量与等待：``4.0``（默认）在再多跑一轮已不值时停下，``8.0`` 愿意为最后千分之几再等。在示例的 40 尺集装箱上，``box`` 在 ``alpha=4`` 时约得到 30 s，``alpha=8`` 时约 80 s；中位数的求解会通过停滞停止更早结束。
+* ``alpha`` 像 F-beta 权衡召回与精确那样权衡质量与等待：``4.0`` 在再多跑一轮已不值时停下，``8.0`` 愿意为最后千分之几再等。默认值按求解器区分（``DEFAULT_ALPHA``：``box`` 4，``boxstacks`` 8，因为单箱 ``boxstacks`` 算法在超载集装箱上会持续改进好几分钟）。在示例的 40 尺集装箱上，``box`` 在 ``alpha=4`` 时约得到 13 s，``boxstacks`` 在 ``alpha=8`` 时约 70 s；中位数的求解会通过停滞停止更早结束。
 * ``speed`` 是当前机器相对参考机器（见 ``packingsolver3d._time_budget_constants.REFERENCE``）的速度，所有时长都除以它。用一次已跑过的求解来校准：``speed = budget.latency / 实测首解时间``。
 
-推荐值的好坏取决于上游对这种实例形状所选的算法，:func:`~packingsolver3d.algorithm_path` 会告诉你选的是哪条。有两种形状的推荐值诚实但偏长：多箱的 ``boxstacks`` 走 ``SVC``（序贯价值修正），一千件货物上首个完整解要几十秒，之后很快自行结束，预算就是这个延迟在 98% 覆盖分位上的值；货多于柜容的 ``box`` / ``boxstacks`` 会持续改进好几分钟，这正是 ``alpha=8`` 为之付费的部分。
+这三个值合起来是一套停止策略；:doc:`/explanations/time_budget/index_zh` 在全部记录曲线上把它与单用时限、单用停滞停止做了对比，并写了调用方该怎么用每个字段。推荐值的好坏取决于上游对这种实例形状所选的算法，:func:`~packingsolver3d.algorithm_path` 会告诉你选的是哪条。有两种形状的推荐值诚实但偏长：多箱的 ``boxstacks`` 走 ``SVC``（序贯价值修正），一千件货物上首个完整解要几十秒，之后很快自行结束，预算就是这个延迟在 98% 覆盖分位上的值；货多于柜容的 ``box`` / ``boxstacks`` 会持续改进好几分钟，这正是 ``alpha=8`` 为之付费的部分。
 
 算法开关
 --------

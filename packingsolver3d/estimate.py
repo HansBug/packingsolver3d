@@ -30,8 +30,8 @@ The model follows the algorithms rather than the data alone:
 ``alpha`` is the quality-versus-waiting dial of an F-beta style score: the
 per-instance optimum of :math:`F_\\alpha = (1+\\alpha^2) S q / (\\alpha^2 S + q)` with
 :math:`q` the relative quality and :math:`S = 1/(1 + t/60\\,\\mathrm{s})` the speed
-score.  ``alpha=4`` is the balanced default, ``alpha=8`` leans towards quality.
-Latencies are fitted at the 90 % (growth paths) or 98 % (single-pass paths)
+score.  ``alpha=4`` is balanced and the ``box`` default, ``alpha=8`` leans towards quality
+and is the ``boxstacks`` default (:data:`DEFAULT_ALPHA`).  Latencies are fitted at the 90 % (growth paths) or 98 % (single-pass paths)
 coverage quantile, so the recommendation is a loose upper bound: with the
 stall-stop knobs most solves end earlier.
 
@@ -45,12 +45,19 @@ Prototype::
     ...     item_types=[ItemType(x=x, y=y, z=z, copies=c, weight=w, rotations=(Rotation.XYZ, Rotation.YXZ))
     ...                 for x, y, z, c, w in cargo],
     ...     objective=Objective.KNAPSACK)
-    >>> budget = recommend_time_budget(instance, solver='box')
+    >>> budget = recommend_time_budget(instance, solver='box')          # alpha defaults to 4 for box
     >>> budget.path, budget.alpha
     ('TSMS', 4.0)
     >>> 5 < budget.time_limit < 120 and budget.stop_when_unimproved_after < budget.time_limit
     True
     >>> result = box.solve(instance, **budget.as_options())  # doctest: +SKIP
+    >>> recommend_time_budget(instance, solver='boxstacks').alpha       # and to 8 for boxstacks
+    8.0
+
+The three fields of :meth:`TimeBudget.as_options` are the whole stopping policy: the time limit is the cap and the
+progress-bar scale, the stall stop is what usually ends the run.  :doc:`/explanations/time_budget/index` compares this
+combination with a bare time limit and with a bare stagnation stop on every recorded curve, and lists what a calling
+application should do with each field.
 """
 import math
 from dataclasses import dataclass
@@ -59,8 +66,9 @@ from typing import Dict, Optional
 from . import _time_budget_constants as _c
 from .model import Instance, Objective
 
-__all__ = ['TimeBudget', 'algorithm_path', 'count_stacks', 'instance_features', 'recommend_time_budget']
+__all__ = ['DEFAULT_ALPHA', 'TimeBudget', 'algorithm_path', 'count_stacks', 'instance_features', 'recommend_time_budget']
 
+DEFAULT_ALPHA = {'box': 4.0, 'boxstacks': 8.0}
 MIN_TIME_LIMIT = 1.0
 MAX_TIME_LIMIT = 600.0
 MIN_PATIENCE = 2.0
@@ -182,22 +190,26 @@ def _latency(entry: dict, solver: str, path: str, f: Dict[str, float]) -> float:
     return max(latency, _c.MIN_LATENCY)
 
 
-def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: float = 4.0, speed: float = 1.0) -> TimeBudget:
+def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: Optional[float] = None, speed: float = 1.0) -> TimeBudget:
     """Recommend ``time_limit`` and stall-stop knobs for solving ``instance`` with ``solver``.
 
     :param instance: The instance about to be solved.
     :param solver: ``'box'`` or ``'boxstacks'``.
-    :param alpha: Quality-versus-waiting dial; ``4`` balanced, ``8`` quality-leaning.  Values between the fitted grid
-        points (0.25 ... 8) are interpolated, values outside are clamped.
+    :param alpha: Quality-versus-waiting dial; ``4`` balanced, ``8`` quality-leaning.  ``None`` picks the solver's
+        default from :data:`DEFAULT_ALPHA` (``box`` 4, ``boxstacks`` 8: on the container loads of the campaign
+        ``alpha=4`` left 16 % of the single-bin ``boxstacks`` solves below 99 % of the reference while ``alpha=8``
+        left none).  Values between the fitted grid points (0.25 ... 8) are interpolated, values outside are clamped.
     :param speed: Speed of this machine relative to the reference machine (``2.0`` = twice as fast); every duration
         is divided by it.  Calibrate it from the measured first-solution time of an earlier run.
     :raises ValueError: On a non-positive ``alpha`` or ``speed`` or an unknown ``solver``.
     """
-    if alpha <= 0:
-        raise ValueError(f'alpha must be positive, got {alpha!r}')
     if speed <= 0:
         raise ValueError(f'speed must be positive, got {speed!r}')
     path = algorithm_path(instance, solver)
+    if alpha is None:
+        alpha = DEFAULT_ALPHA[solver]
+    if alpha <= 0:
+        raise ValueError(f'alpha must be positive, got {alpha!r}')
     f = instance_features(instance)
     entry = _c.PATHS[(solver, path)]
     latency = _latency(entry, solver, path, f)

@@ -26,7 +26,7 @@ Overview:
 
 from . import box, boxstacks
 from .config.meta import __VERSION__ as __version__
-from .estimate import TimeBudget, algorithm_path, count_stacks, instance_features, recommend_time_budget
+from .estimate import DEFAULT_ALPHA, TimeBudget, algorithm_path, count_stacks, instance_features, recommend_time_budget
 from .errors import InvalidInstanceError, PackingSolverError, SolverFailedError, StackSemanticsError, \
     UnsupportedFeatureError
 from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective, \
@@ -34,6 +34,7 @@ from .model import ALL_ROTATIONS, BinType, Defect, Instance, ItemType, Objective
 from .result import PackedBin, Placement, ProgressEvent, Result, RunRecord, Stack, Status
 
 __all__ = [
+    'DEFAULT_ALPHA',
     'ALL_ROTATIONS',
     'BinType',
     'Defect',
