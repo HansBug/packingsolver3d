@@ -16,7 +16,7 @@ Example::
 __TITLE__ = 'packingsolver3d'
 
 #: Version of this project.
-__VERSION__ = '0.0.2'
+__VERSION__ = '0.0.3'
 
 #: Short description of the project, will be included in ``setup.py``.
 __DESCRIPTION__ = 'Pythonic bindings for the 3D (box / boxstacks) solvers of PackingSolver, ' \
