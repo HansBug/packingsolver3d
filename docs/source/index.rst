@@ -1,23 +1,23 @@
-欢迎来到 packingsolver3d 的文档
-============================================================
+Welcome to packingsolver3d
+==========================
 
-概览
-----
+Overview
+--------
 
-\ **packingsolver3d**\ 是 `PackingSolver <https://github.com/fontanf/packingsolver>`_ 两个三维求解器（``box`` 与 ``boxstacks``\ ）的非官方 Python 发行版。上游 C++ 与一层很薄的 pybind11 桥接一起编译成一个扩展模块；每次求解在进程内完成，结果拷贝成普通 Python 值返回，不存在任何持有求解器内存的 Python 对象。本包独立于 PackingSolver 维护，未获其作者认可；求解器本身从锁定的上游提交原样编译而来。
+**packingsolver3d** is an unofficial Python distribution of the two three-dimensional solvers of `PackingSolver <https://github.com/fontanf/packingsolver>`_, ``box`` and ``boxstacks``. The upstream C++ is compiled together with a thin pybind11 bridge into one extension module; every solve runs in-process and copies its result back into plain Python values, so no Python object ever owns solver memory. The package is maintained independently of PackingSolver and is not endorsed by its author; the solvers themselves are built unmodified from a pinned upstream commit.
 
-主要特性
-~~~~~~~~
+Key Features
+~~~~~~~~~~~~~
 
-* **值进值出的 API**，基于 frozen dataclass：传入 :class:`~packingsolver3d.model.Instance`，返回 :class:`~packingsolver3d.result.Result`
-* **两个求解器共用一套模型**：:mod:`packingsolver3d.box` 处理普通三维装箱，:mod:`packingsolver3d.boxstacks` 处理堆叠、重量、卡车、卸载顺序与缺陷
-* **状态不掺水**：求解器报告的界从不被改称已证最优；``OPTIMAL`` 只表示达到值与报告的界相符
-* **每次求解可审计**：结果携带传给上游的全部选项、上游被捕获的日志与墙钟时间
-* **上游自身的限制**：``time_limit`` 与 ``memory_limit`` 直接透传给求解器的计时器与内存检查
-* **预编译 wheel** 覆盖 Linux、macOS、Windows 的 x86_64 与 arm64，各平台有官方构建的 CPython 3.7 至 3.14
+* **Value-in / value-out API** built on frozen dataclasses: :class:`~packingsolver3d.model.Instance` goes in, :class:`~packingsolver3d.result.Result` comes out
+* **Two solvers, one model**: :mod:`packingsolver3d.box` for plain 3D packing, :mod:`packingsolver3d.boxstacks` for stacks, weights, trucks, unloading order and defects
+* **Honest statuses**: a solver-reported bound is never relabelled as a proven optimum; ``OPTIMAL`` means the achieved value met the reported bound
+* **Auditable runs**: every result carries the exact options handed to upstream, upstream's captured log and the wall time
+* **Upstream's own limits**: ``time_limit`` and ``memory_limit`` go to the solver's timer and memory check
+* **Prebuilt wheels** for Linux, macOS and Windows on x86_64 and arm64, CPython 3.7 through 3.14 where the platform has one
 
-快速开始
-~~~~~~~~
+Quick Start
+~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -28,7 +28,7 @@
    from packingsolver3d import ALL_ROTATIONS, BinType, Instance, ItemType, Objective, box
    from packingsolver3d.visual import plot_result       # pip install "packingsolver3d[plot]"
 
-   luggage = {  # name: (x, y, z, value, copies) -- 一个 55 x 40 x 23 cm 的登机箱和想带的东西
+   luggage = {  # name: (x, y, z, value, copies) -- a 55 x 40 x 23 cm carry-on and what you would like to take
        'laptop': (36, 25, 3, 10, 1), 'camera': (15, 10, 8, 9, 1), 'shoes': (30, 20, 12, 8, 1),
        'jacket': (35, 20, 15, 6, 1), 'sweater': (30, 25, 8, 5, 2), 'toiletry bag': (25, 12, 10, 4, 1),
        'hair dryer': (22, 9, 20, 3, 1), 'book': (24, 16, 4, 3, 4), 'souvenir': (10, 10, 10, 2, 6),
@@ -38,11 +38,11 @@
        bin_types=[BinType(x=55, y=40, z=23)],
        item_types=[ItemType(x=x, y=y, z=z, profit=value, copies=n, rotations=ALL_ROTATIONS)
                    for x, y, z, value, n in luggage.values()],
-       objective=Objective.KNAPSACK,                    # 最大化装进去的东西的总分
+       objective=Objective.KNAPSACK,                    # maximise the value of what fits
    )
    result = box.solve(instance, time_limit=3.0)
 
-   print(result.status, result.value, result.bound)      # Status.FEASIBLE 69.0 72.0 -- 除了夹克全装进去了
+   print(result.status, result.value, result.bound)      # Status.FEASIBLE 69.0 72.0 -- everything but the jacket
    plot_result(result, title='What fits in the carry-on').show()
 
 .. raw:: html
@@ -53,122 +53,122 @@
    .. image:: _static/figures/quick_start_suitcase.png
       :width: 90%
 
-完整流程见 :doc:`tutorials/quick_start/index_zh`；在信任数字之前应了解的、继承自上游的行为汇总在 :doc:`explanations/upstream_behaviours/index_zh`。
+The full walkthrough is :doc:`tutorials/quick_start/index`; the behaviours inherited from upstream that you should know before trusting a number are collected in :doc:`explanations/upstream_behaviours/index`.
 
-架构
-~~~~
+Architecture
+~~~~~~~~~~~~
 
-* **包根** (``packingsolver3d``)：重导出模型、结果、错误类型以及两个求解器模块
-* **求解器模块** (``packingsolver3d.box``、``packingsolver3d.boxstacks``)：各一个 ``solve`` 函数，与上游参数一一对应
-* **原生桥接** (``packingsolver3d._core``)：上游 ``box``、``boxstacks`` 与 pybind11 胶水，合成一个扩展模块
-* **元数据** (``packingsolver3d.config``)：包版本、锁定的上游提交与构建选项
+* **Package root** (``packingsolver3d``): re-exports the model, result and error types plus the two solver modules
+* **Solver modules** (``packingsolver3d.box``, ``packingsolver3d.boxstacks``): one ``solve`` function each, mirroring upstream's parameters
+* **Native bridge** (``packingsolver3d._core``): upstream ``box`` and ``boxstacks`` plus the pybind11 glue, one extension module
+* **Metadata** (``packingsolver3d.config``): package version, pinned upstream commit and build options
 
-上游与源码
-~~~~~~~~~~
+Upstream and Source
+~~~~~~~~~~~~~~~~~~~
 
-* **GitHub 仓库**：https://github.com/HansBug/packingsolver3d
-* **PackingSolver 上游**：https://github.com/fontanf/packingsolver
+* **GitHub Repository**: https://github.com/HansBug/packingsolver3d
+* **PackingSolver Upstream**: https://github.com/fontanf/packingsolver
 
-教程
-----
+Tutorials
+---------
 
-教程是每步都有可观察成功的学习路径。路线图说明阅读顺序，各页依次展开。
-
-.. toctree::
-    :maxdepth: 2
-    :caption: 教程
-    :hidden:
-
-    教程路线图 <tutorials/index_zh>
-    tutorials/quick_start/index_zh
-    tutorials/boxstacks/index_zh
-
-* :doc:`教程路线图 <tutorials/index_zh>`
-* :doc:`tutorials/quick_start/index_zh`
-* :doc:`tutorials/boxstacks/index_zh`
-
-任务指南
---------
-
-任务指南面向已经知道自己要做什么的读者。
+Tutorials are learning paths with one observable success each. The roadmap explains the reading order; the pages follow it.
 
 .. toctree::
     :maxdepth: 2
-    :caption: 任务指南
+    :caption: Tutorials
     :hidden:
 
-    任务指南路线图 <how_to/index_zh>
-    how_to/installation/index_zh
-    how_to/budgets/index_zh
-    how_to/visualization/index_zh
+    Tutorial roadmap <tutorials/index>
+    tutorials/quick_start/index
+    tutorials/boxstacks/index
 
-* :doc:`任务指南路线图 <how_to/index_zh>`
-* :doc:`how_to/installation/index_zh`
-* :doc:`how_to/budgets/index_zh`
-* :doc:`how_to/visualization/index_zh`
+* :doc:`Tutorial roadmap <tutorials/index>`
+* :doc:`tutorials/quick_start/index`
+* :doc:`tutorials/boxstacks/index`
 
-解释
-----
+How-to Guides
+-------------
 
-解释类页面给出设计背后的理由，以及影响结果的上游行为。
+How-to guides are task pages for readers who already know what they want to do.
 
 .. toctree::
     :maxdepth: 2
-    :caption: 解释
+    :caption: How-to Guides
     :hidden:
 
-    解释路线图 <explanations/index_zh>
-    explanations/architecture/index_zh
-    explanations/statuses/index_zh
-    explanations/upstream_behaviours/index_zh
+    How-to roadmap <how_to/index>
+    how_to/installation/index
+    how_to/budgets/index
+    how_to/visualization/index
 
-* :doc:`解释路线图 <explanations/index_zh>`
-* :doc:`explanations/architecture/index_zh`
-* :doc:`explanations/statuses/index_zh`
-* :doc:`explanations/upstream_behaviours/index_zh`
+* :doc:`How-to roadmap <how_to/index>`
+* :doc:`how_to/installation/index`
+* :doc:`how_to/budgets/index`
+* :doc:`how_to/visualization/index`
 
-基准测试
---------
+Explanations
+------------
 
-一项小规模、可完整复现的能力研究：在三个公开实例族上，把本包与 Python、Go、Rust 生态里常用的开源三维装箱库以及两个精确参照程序放在一起比较，每个解都经过独立复核并可视化。
+Explanations give the reasoning behind the design and the upstream behaviours that shape results.
 
 .. toctree::
     :maxdepth: 2
-    :caption: 基准测试
+    :caption: Explanations
     :hidden:
 
-    基准测试路线图 <benchmarks/index_zh>
-    benchmarks/datasets/index_zh
-    benchmarks/participants/index_zh
-    benchmarks/protocol/index_zh
-    benchmarks/leaderboards/index_zh
-    benchmarks/gallery/index_zh
+    Explanation roadmap <explanations/index>
+    explanations/architecture/index
+    explanations/statuses/index
+    explanations/upstream_behaviours/index
 
-* :doc:`基准测试路线图 <benchmarks/index_zh>`
-* :doc:`benchmarks/datasets/index_zh`
-* :doc:`benchmarks/participants/index_zh`
-* :doc:`benchmarks/protocol/index_zh`
-* :doc:`benchmarks/leaderboards/index_zh`
-* :doc:`benchmarks/gallery/index_zh`
+* :doc:`Explanation roadmap <explanations/index>`
+* :doc:`explanations/architecture/index`
+* :doc:`explanations/statuses/index`
+* :doc:`explanations/upstream_behaviours/index`
 
-参考
-----
+Benchmarks
+----------
 
-参考页陈述事实：字段、选项、错误，以及自动生成的 API 地图。
+A small, reproducible capability study on three public instance families, next to the open-source 3D packing libraries commonly used from Python, Go and Rust and two exact reference codes, with every solution re-validated and drawn.
 
 .. toctree::
     :maxdepth: 2
-    :caption: 参考
+    :caption: Benchmarks
     :hidden:
 
-    参考地图 <reference/index_zh>
-    reference/model_fields/index_zh
-    reference/solver_options/index_zh
-    reference/errors/index_zh
+    Benchmark roadmap <benchmarks/index>
+    benchmarks/datasets/index
+    benchmarks/participants/index
+    benchmarks/protocol/index
+    benchmarks/leaderboards/index
+    benchmarks/gallery/index
 
-* :doc:`参考地图 <reference/index_zh>`
-* :doc:`reference/model_fields/index_zh`
-* :doc:`reference/solver_options/index_zh`
-* :doc:`reference/errors/index_zh`
+* :doc:`Benchmark roadmap <benchmarks/index>`
+* :doc:`benchmarks/datasets/index`
+* :doc:`benchmarks/participants/index`
+* :doc:`benchmarks/protocol/index`
+* :doc:`benchmarks/leaderboards/index`
+* :doc:`benchmarks/gallery/index`
 
-.. include:: api_doc_zh.rst
+Reference
+---------
+
+Reference pages state facts: fields, options, errors, and the generated API map.
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Reference
+    :hidden:
+
+    Reference map <reference/index>
+    reference/model_fields/index
+    reference/solver_options/index
+    reference/errors/index
+
+* :doc:`Reference map <reference/index>`
+* :doc:`reference/model_fields/index`
+* :doc:`reference/solver_options/index`
+* :doc:`reference/errors/index`
+
+.. include:: api_doc_en.rst
