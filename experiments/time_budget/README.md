@@ -36,5 +36,6 @@ python experiments/time_budget/export_constants.py $TB_WORK/results/campaign.jso
 - `paths.py` -- upstream algorithm-path classifier and its validation against event labels.
 - `model.py`, `export_constants.py` -- the per-path model, its evaluation with and without stall stop, and the constants export.
 - `calibrate.py`, `calibration.md` -- the idle-machine rerun of 80 instances and the resulting per-path load factors (first-solution ratio load/idle: TSMS 2.31, SOR 1.91, SSK 1.14, boxstacks SVC 1.12, all 2.17).
+- `policy_compare.py`, `policy_compare.md`, `policy_compare_D.md` -- replay of stopping policies on every curve (fixed time limit only, stagnation only with fixed patience, stagnation guarded by the predicted latency, the PR rule, and an adaptive patience relative to the observed first solution), each under a machine 1x / 2x slower / 2x faster than assumed.
 - `plot.py`, `figures/` -- the figures posted on the pull request (per-family curves, demo budgets, latency fit, alpha vs optimum, formula evaluation, looseness).
 - `report.md`, `model_report.md` -- the tables as generated for the pull request (`model_report.md` is in idle-machine seconds; `report.md` in campaign seconds).
