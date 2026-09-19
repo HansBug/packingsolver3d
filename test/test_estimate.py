@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from packingsolver3d import BinType, Instance, ItemType, Objective, TimeBudget, algorithm_path, count_stacks, \
@@ -105,6 +107,7 @@ class TestRecommendTimeBudget:
         assert budget.path == 'TSMS' and budget.alpha == 4.0 and budget.speed == 1.0
         assert budget.improvement > 0
         assert budget.time_limit == pytest.approx(budget.latency + budget.improvement)
+        assert estimate._c.MIN_LATENCY <= budget.typical_latency < budget.latency
         assert budget.stop_when_unimproved_after == pytest.approx(budget.time_limit / 2)
         assert budget.stop_when_unimproved_for == pytest.approx(max(estimate.MIN_PATIENCE, budget.improvement / 2))
         assert budget.as_options() == {
@@ -163,11 +166,20 @@ class TestRecommendTimeBudget:
                          [BinType(x=1000, y=1000, z=1000, copies=5)], Objective.BIN_PACKING)
         assert recommend_time_budget(huge, 'boxstacks').time_limit == estimate.MAX_TIME_LIMIT
 
+    def test_typical_latency_keeps_the_block_step_and_drops_the_coverage_shift(self, container_instance):
+        budget = recommend_time_budget(container_instance, 'box')
+        entry = constants.PATHS[('box', 'TSMS')]
+        assert budget.path == 'TSMS'
+        # the block-generation step is a median already: only the pass term is shifted
+        assert budget.latency - entry['block'] == pytest.approx((budget.typical_latency - entry['block']) * math.exp(entry['shift']))
+        tiny = recommend_time_budget(_instance([ItemType(x=1, y=1, z=1, copies=2)], [BinType(x=10, y=1, z=1)]), 'boxstacks')
+        assert tiny.typical_latency == tiny.latency == estimate._c.MIN_LATENCY  # both floored
+
     def test_speed_divides_every_duration(self, container_instance):
         base = recommend_time_budget(container_instance)
         fast = recommend_time_budget(container_instance, speed=2.0)
         assert fast.speed == 2.0
-        for field in ('time_limit', 'stop_when_unimproved_for', 'stop_when_unimproved_after', 'latency', 'improvement'):
+        for field in ('time_limit', 'stop_when_unimproved_for', 'stop_when_unimproved_after', 'latency', 'typical_latency', 'improvement'):
             assert getattr(fast, field) == pytest.approx(getattr(base, field) / 2)
 
     @pytest.mark.parametrize('kwargs, message', [
@@ -186,6 +198,7 @@ class TestRecommendTimeBudget:
             assert set(entry['m']) == set(entry['add']) == set(constants.ALPHAS)
             assert len(entry['beta']) == (4 if key[1] == 'SOR' else 3)
             assert all(value >= 0 for value in entry['beta'][1:])
+            assert entry['shift'] >= 0 and entry['scale'] > 0
             assert entry['growth'] == (key[1] in estimate._GROWTH_PATHS)
 
     def test_budget_feeds_solve(self, box_instance):

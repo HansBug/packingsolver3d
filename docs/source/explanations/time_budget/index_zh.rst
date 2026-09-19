@@ -128,7 +128,7 @@
 * ``time_limit`` 就是*最长时间*设置，也是按时间推进的进度条的满刻度。求解通常会在它之前结束：它是覆盖分位，不是中位数。
 * ``stop_when_unimproved_for`` 与 ``stop_when_unimproved_after`` 就是*停滞即停*设置；两个都从预算填，而不是让用户填一个数，因为后者守护首解慢的路径，前者必须随算法缩放。``RunRecord.stop_reason`` 为 ``'unimproved'`` 是正常且好的结果，值得显示为"提前结束：N 秒无改进"。
 * ``alpha`` 是唯一值得暴露的旋钮，做成粗档位（更快 / 均衡 / 更充分 对应 2 / 4 / 8）而不是数字；保留按求解器的默认值（``box`` 4，``boxstacks`` 8）。
-* ``speed`` 应该校准而不是手填：每次求解后用第一个 :class:`~packingsolver3d.ProgressEvent` 算 ``budget.latency / 实测首解时间``，跨次指数平滑（最新值权重 0.3 左右即可），按机器持久化。尚无校准时优先用 ``alpha=8`` 或小于 1 的 ``speed``：回放显示组合策略在机器比假设快时退化温和，比假设慢时退化剧烈。
+* ``speed`` 应该校准而不是手填：每次求解后用第一个 :class:`~packingsolver3d.ProgressEvent` 算 ``budget.typical_latency * budget.speed / 实测首解时间``（用中位预测，不用覆盖分位的 ``latency``），跨次指数平滑（最新值权重 0.3 左右即可），按机器持久化。尚无校准时优先用 ``alpha=8`` 或小于 1 的 ``speed``：回放显示组合策略在机器比假设快时退化温和，比假设慢时退化剧烈。
 * ``path``、``latency``、``improvement`` 用来解释："预计约 L 秒出首解"，以及在 ``boxstacks`` 多箱（``path == 'SVC'``）或 ``time_limit`` 撞到 600 s 封顶时给出提示，因为这些形状正是所钉住的上游处理得慢的。
 * 可选的第二触发：一个 ``progress_callback``，当实测首解时间的 ``kappa``（约 4）倍内没有新改进时返回 ``False``，只对 ``box`` 启用；它能进一步缩短 ``TSMS`` 求解，且从构造上就对机器速度鲁棒。预算自带的停滞停止仍是第一触发。
 
