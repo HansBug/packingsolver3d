@@ -102,7 +102,8 @@ def fit(rows, scale=1.0):
             y = [math.log(r['t_first'] * scale - (entry['block'] if r['features']['n_types'] >= BLOCK_TYPES else 0.0)) for r in sel]
             beta, resid = _quantile_shift_fit(X, y, coverage)
             # coverage is enforced where the pass term matters (large instances); the block step already covers the small ones
-            beta[0] += float(np.quantile(resid, coverage))
+            entry['shift'] = float(np.quantile(resid, coverage))   # log-space distance between the median and the covered prediction
+            beta[0] += entry['shift']
             entry['beta'] = beta.tolist()
             entry['rmse_log'] = float(np.sqrt(np.mean(resid ** 2)))
             entry['n_pass_fit'] = len(sel)
@@ -110,7 +111,8 @@ def fit(rows, scale=1.0):
             X = [latency_design(solver, path, r['features']) for r in rs]
             y = [math.log(max(r['t_first'] * scale, 1e-3)) for r in rs]
             beta, resid = _quantile_shift_fit(X, y, coverage)
-            beta[0] += float(np.quantile(resid, coverage))
+            entry['shift'] = float(np.quantile(resid, coverage))
+            beta[0] += entry['shift']
             entry['beta'] = beta.tolist()
             entry['rmse_log'] = float(np.sqrt(np.mean(resid ** 2)))
         for a in ALPHAS:

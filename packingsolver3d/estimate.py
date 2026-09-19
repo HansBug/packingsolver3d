@@ -86,7 +86,10 @@ class TimeBudget:
     :param stop_when_unimproved_for: Patience for ``stop_when_unimproved_for``.
     :param stop_when_unimproved_after: Earliest stall stop, ``stop_when_unimproved_after``.
     :param path: Upstream algorithm path the recommendation is based on.
-    :param latency: Predicted time to the first solution, in seconds.
+    :param latency: Predicted time to the first solution, in seconds, at the coverage quantile the budget is built on (an
+        upper estimate: 90 % of the fitted instances get their first solution sooner).
+    :param typical_latency: The median prediction of the same first-solution time. Compare the *observed* first-solution
+        time with this one, not with ``latency``, when calibrating ``speed``: ``speed ≈ typical_latency × speed / observed``.
     :param improvement: Predicted time worth waiting after the first solution.
     :param alpha: The quality-versus-waiting dial the budget was computed for.
     :param speed: Machine speed factor the budget was scaled by.
@@ -97,6 +100,7 @@ class TimeBudget:
     stop_when_unimproved_after: float
     path: str
     latency: float
+    typical_latency: float
     improvement: float
     alpha: float
     speed: float
@@ -178,12 +182,15 @@ def _interpolate(table: Dict[float, float], alpha: float) -> float:
     raise AssertionError('unreachable')  # pragma: no cover
 
 
-def _latency(entry: dict, solver: str, path: str, f: Dict[str, float]) -> float:
+def _latency(entry: dict, solver: str, path: str, f: Dict[str, float], covered: bool = True) -> float:
+    """Predicted first-solution latency; ``covered=False`` drops the coverage shift and gives the median prediction."""
     size = f['n_stacks'] if solver == 'boxstacks' else f['n_items']
     beta = entry['beta']
     log_latency = beta[0] + beta[1] * math.log(size) + beta[2] * math.log(f['n_types'])
     if path == 'SOR' and f['fill_ratio'] > 1.0:
         log_latency += beta[3]
+    if not covered:
+        log_latency -= entry['shift']
     latency = math.exp(log_latency)
     if path == 'TSMS' and f['n_types'] >= _c.BLOCK_TYPES:
         latency += entry['block']
@@ -200,7 +207,8 @@ def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: Option
         ``alpha=4`` left 16 % of the single-bin ``boxstacks`` solves below 99 % of the reference while ``alpha=8``
         left none).  Values between the fitted grid points (0.25 ... 8) are interpolated, values outside are clamped.
     :param speed: Speed of this machine relative to the reference machine (``2.0`` = twice as fast); every duration
-        is divided by it.  Calibrate it from the measured first-solution time of an earlier run.
+        is divided by it.  Calibrate it from an earlier run as ``budget.typical_latency * budget.speed / observed
+        first-solution time`` (``typical_latency``, not the covered ``latency``, is the unbiased comparison point).
     :raises ValueError: On a non-positive ``alpha`` or ``speed`` or an unknown ``solver``.
     """
     if speed <= 0:
@@ -213,6 +221,7 @@ def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: Option
     f = instance_features(instance)
     entry = _c.PATHS[(solver, path)]
     latency = _latency(entry, solver, path, f)
+    typical = _latency(entry, solver, path, f, covered=False)
     improvement = latency * _interpolate(entry['m'], alpha) + _interpolate(entry['add'], alpha)
     time_limit = min(max(latency + improvement, MIN_TIME_LIMIT), MAX_TIME_LIMIT)
     # Never stop in the first half of the budget nor before the expected first solution; single-pass paths have no
@@ -225,6 +234,7 @@ def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: Option
         stop_when_unimproved_after=after / speed,
         path=path,
         latency=latency / speed,
+        typical_latency=typical / speed,
         improvement=improvement / speed,
         alpha=float(alpha),
         speed=float(speed),

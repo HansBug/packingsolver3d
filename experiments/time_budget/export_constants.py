@@ -33,12 +33,13 @@ def main(campaign_path, scale, out_path, calib_note):
              '#: Number of item types from which the TSMS block-generation step is charged (the block cap is reached).',
              f'BLOCK_TYPES = {model.BLOCK_TYPES}', '',
              '#: ``(solver, path)`` -> latency regression ``beta`` (log space: intercept, log size, log types[, overfull]), TSMS ``block`` step,',
-             '#: per-path calibration ``scale``, and the ``alpha`` tables ``m`` (multiple of the latency) and ``add`` (seconds) of the improvement term.',
+             '#: per-path calibration ``scale``, the log-space coverage ``shift`` between the median and the covered latency, and the ``alpha`` tables',
+             '#: ``m`` (multiple of the latency) and ``add`` (seconds) of the improvement term.',
              'PATHS = {']
     for key, e in sorted(M.items()):
         lines.append(f'    ({key[0]!r}, {key[1]!r}): {{')
         lines.append(f"        'n': {e['n']}, 'growth': {e['growth']}, 'coverage': {e['coverage']}, 'rmse_log': {e['rmse_log']:.3f},")
-        lines.append(f"        'beta': {json.dumps([round(b, 4) for b in e['beta']])}, 'block': {e['block']:.3f}, 'scale': {e['scale']:.3f},")
+        lines.append(f"        'beta': {json.dumps([round(b, 4) for b in e['beta']])}, 'block': {e['block']:.3f}, 'scale': {e['scale']:.3f}, 'shift': {e['shift']:.4f},")
         lines.append(f"        'm': {{{', '.join(f'{a}: {round(v, 4)}' for a, v in sorted(e['m'].items()))}}},")
         lines.append(f"        'add': {{{', '.join(f'{a}: {round(v, 4)}' for a, v in sorted(e['add'].items()))}}},")
         lines.append('    },')
