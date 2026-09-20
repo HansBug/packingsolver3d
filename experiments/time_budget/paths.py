@@ -24,13 +24,20 @@ def box_path(objective, n_bins, mean_items_per_bin, mean_type_copies):
     return 'TS'  # tree search (+ column generation; bin packing adds SVC): multi-bin tree search
 
 
-def boxstacks_path(n_bins):
-    return 'SOR' if n_bins <= 1 else 'SVC'
+def boxstacks_path(objective, n_bins, mean_items_per_bin, mean_type_copies):
+    """Upstream d10db9d7: one bin -> SOR; several bins -> SSK or SVC for bin packing (same threshold rule as box), SVC otherwise."""
+    if n_bins <= 1:
+        return 'SOR'
+    if objective != 'bin-packing':
+        return 'SVC'
+    mipb = int(mean_items_per_bin)
+    threshold = MANY_ITEMS_IN_BINS if mean_type_copies > MANY_COPIES_FACTOR * mipb else MANY_ITEMS_IN_BINS_2
+    return 'SSK' if mipb > threshold else 'SVC'
 
 
 def path(solver, objective, features):
     if solver == 'boxstacks':
-        return boxstacks_path(features['n_bins'])
+        return boxstacks_path(objective, features['n_bins'], features['mean_items_per_bin'], features['mean_copies'])
     return box_path(objective, features['n_bins'], features['mean_items_per_bin'], features['mean_copies'])
 
 

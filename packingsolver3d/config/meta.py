@@ -16,7 +16,7 @@ Example::
 __TITLE__ = 'packingsolver3d'
 
 #: Version of this project.
-__VERSION__ = '0.0.3'
+__VERSION__ = '0.0.4'
 
 #: Short description of the project, will be included in ``setup.py``.
 __DESCRIPTION__ = 'Pythonic bindings for the 3D (box / boxstacks) solvers of PackingSolver, ' \
@@ -36,7 +36,7 @@ __UPSTREAM_URL__ = 'https://github.com/fontanf/packingsolver'
 
 #: Upstream commit the bundled executables are built from.
 #: Keep this in sync with the ``upstream/packingsolver`` submodule pointer.
-__UPSTREAM_COMMIT__ = '2a5984810b694910e7681464c71f893c28416cce'
+__UPSTREAM_COMMIT__ = 'd10db9d75fbcdcb3ce7f43ddf1a7f63554057b58'
 
 #: Linear programming backend compiled into the bundled executables.
 #:

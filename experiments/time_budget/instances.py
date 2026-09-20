@@ -235,6 +235,17 @@ def build_jobs(roadef_per_family=8, t_upstream=60.0, t_synthetic=120.0, seed=202
                                 'stacked': stacked, 'objective': objective.value, 'bins': bins}
                         add(f'{solver}/synthetic/{objective.value}/{container}/t{n_types}/f{fill}', 'synthetic', solver, objective, spec,
                             t_synthetic, synthetic(s, container, n_types, fill, stacked, objective, bins))
+            if solver == 'boxstacks' and objective == Objective.KNAPSACK:
+                # several bins with more cargo than fits: the multi-bin knapsack path (SVC on every upstream so far)
+                for container in CONTAINERS:
+                    for n_types in [2, 5, 10, 20]:
+                        for fill in [0.9, 1.5, 2.5]:
+                            bins = max(2, math.ceil(fill / 0.75) - 1)
+                            s2 = seed + 7000 + n_types * 100 + int(fill * 10)
+                            spec = {'kind': 'synthetic', 'seed': s2, 'container': container, 'n_types': n_types, 'fill': fill,
+                                    'stacked': True, 'objective': objective.value, 'bins': bins}
+                            add(f'{solver}/synthetic_multi/{objective.value}/{container}/t{n_types}/f{fill}', 'synthetic_multi', solver, objective, spec,
+                                t_synthetic, synthetic(s2, container, n_types, fill, True, objective, bins))
             for scale, types, tag in [(1, 1, 'demo'), (2, 1, 'demo_x2'), (1, 2, 'demo_ten')]:
                 bins = 1 if objective == Objective.KNAPSACK else 4
                 spec = {'kind': 'demo', 'stacked': stacked, 'objective': objective.value, 'scale': scale, 'types': types, 'bins': bins}

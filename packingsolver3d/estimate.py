@@ -33,7 +33,12 @@ per-instance optimum of :math:`F_\\alpha = (1+\\alpha^2) S q / (\\alpha^2 S + q)
 score.  ``alpha=4`` is balanced and the ``box`` default, ``alpha=8`` leans towards quality
 and is the ``boxstacks`` default (:data:`DEFAULT_ALPHA`).  Latencies are fitted at the 90 % (growth paths) or 98 % (single-pass paths)
 coverage quantile, so the recommendation is a loose upper bound: with the
-stall-stop knobs most solves end earlier.
+stall-stop knobs most solves end earlier.  Those knobs make the patience
+*relative*: the run stops once it has been silent for ``alpha / 2`` times (1 to
+4) the time of its last improvement, because the growth paths double their
+queues between passes and a fixed patience would cut every late pass short;
+on the recorded curves this ends a typical solve at a quarter to a half of the
+time limit instead of just above half.
 
 Prototype::
 
@@ -50,6 +55,8 @@ Prototype::
     ('TSMS', 4.0)
     >>> 5 < budget.time_limit < 120 and budget.stop_when_unimproved_after < budget.time_limit
     True
+    >>> budget.stop_when_unimproved_ratio, budget.stop_when_unimproved_for
+    (2.0, 5.0)
     >>> result = box.solve(instance, **budget.as_options())  # doctest: +SKIP
     >>> recommend_time_budget(instance, solver='boxstacks').alpha       # and to 8 for boxstacks
     8.0
@@ -71,7 +78,8 @@ __all__ = ['DEFAULT_ALPHA', 'TimeBudget', 'algorithm_path', 'count_stacks', 'ins
 DEFAULT_ALPHA = {'box': 4.0, 'boxstacks': 8.0}
 MIN_TIME_LIMIT = 1.0
 MAX_TIME_LIMIT = 600.0
-MIN_PATIENCE = 2.0
+MIN_PATIENCE = 5.0
+RATIO_BOUNDS = (1.0, 4.0)
 _MANY_ITEMS_IN_BINS = 16
 _MANY_ITEMS_IN_BINS_2 = 64
 _MANY_COPIES_FACTOR = 1.0
@@ -83,8 +91,10 @@ class TimeBudget:
     """A recommended ``time_limit`` and the stall-stop knobs that go with it.
 
     :param time_limit: Seconds to pass as ``time_limit``; a loose upper bound.
-    :param stop_when_unimproved_for: Patience for ``stop_when_unimproved_for``.
-    :param stop_when_unimproved_after: Earliest stall stop, ``stop_when_unimproved_after``.
+    :param stop_when_unimproved_for: Floor of the patience, ``stop_when_unimproved_for``.
+    :param stop_when_unimproved_after: Earliest stall stop, ``stop_when_unimproved_after`` (the covered latency).
+    :param stop_when_unimproved_ratio: Relative patience, ``stop_when_unimproved_ratio``: the run stops once it has
+        been silent for that many times the time of its last improvement, ``alpha / 2`` clamped to 1 ... 4.
     :param path: Upstream algorithm path the recommendation is based on.
     :param latency: Predicted time to the first solution, in seconds, at the coverage quantile the budget is built on (an
         upper estimate: 90 % of the fitted instances get their first solution sooner).
@@ -98,6 +108,7 @@ class TimeBudget:
     time_limit: float
     stop_when_unimproved_for: float
     stop_when_unimproved_after: float
+    stop_when_unimproved_ratio: float
     path: str
     latency: float
     typical_latency: float
@@ -111,6 +122,7 @@ class TimeBudget:
             'time_limit': self.time_limit,
             'stop_when_unimproved_for': self.stop_when_unimproved_for,
             'stop_when_unimproved_after': self.stop_when_unimproved_after,
+            'stop_when_unimproved_ratio': self.stop_when_unimproved_ratio,
         }
 
 
@@ -150,15 +162,22 @@ def algorithm_path(instance: Instance, solver: str = 'box') -> str:
     Replicates ``box/optimize.cpp``: single-bin knapsack uses ``TSMS`` (tree search over maximal spaces) when the bin
     holds more than 64 mean items, ``TS`` (tree search) otherwise; with several bins, copy-heavy instances go to ``SSK``
     (sequential single knapsack) or ``SVC`` (sequential value correction), the others to ``SSK`` or ``TS``.  ``boxstacks``
-    runs ``SOR`` (sequential onedimensional rectangle) on one bin and ``SVC`` on several.
+    (``boxstacks/optimize.cpp`` at the pinned commit) runs ``SOR`` (sequential onedimensional rectangle) on one bin; on
+    several bins, bin packing takes ``SSK`` when the bin holds more than 16 (copy-heavy) or 64 mean items and ``SVC``
+    otherwise, while knapsack and variable-sized bin packing always take ``SVC``.
     """
     f = instance_features(instance)
-    if solver == 'boxstacks':
-        return 'SOR' if f['n_bins'] <= 1 else 'SVC'
-    if solver != 'box':
-        raise ValueError(f"solver must be 'box' or 'boxstacks', got {solver!r}")
     mipb = int(f['mean_items_per_bin'])
     objective = instance.objective
+    if solver == 'boxstacks':
+        if f['n_bins'] <= 1:
+            return 'SOR'
+        if objective != Objective.BIN_PACKING:
+            return 'SVC'
+        threshold = _MANY_ITEMS_IN_BINS if f['mean_copies'] > _MANY_COPIES_FACTOR * mipb else _MANY_ITEMS_IN_BINS_2
+        return 'SSK' if mipb > threshold else 'SVC'
+    if solver != 'box':
+        raise ValueError(f"solver must be 'box' or 'boxstacks', got {solver!r}")
     if f['n_bins'] <= 1:
         if objective in (Objective.KNAPSACK, Objective.FEASIBILITY) and mipb > _MANY_ITEMS_IN_BINS_2:
             return 'TSMS'
@@ -224,14 +243,17 @@ def recommend_time_budget(instance: Instance, solver: str = 'box', alpha: Option
     typical = _latency(entry, solver, path, f, covered=False)
     improvement = latency * _interpolate(entry['m'], alpha) + _interpolate(entry['add'], alpha)
     time_limit = min(max(latency + improvement, MIN_TIME_LIMIT), MAX_TIME_LIMIT)
-    # Never stop in the first half of the budget nor before the expected first solution; single-pass paths have no
-    # improvement window, so their patience is the floor and the run is expected to end by itself anyway.
-    after = min(max(latency, time_limit / 2), time_limit)
-    patience = max(MIN_PATIENCE, improvement / 2)
+    # The stall stop is relative: the growth paths double their queues between passes, so the wait for the next pass
+    # is about the time already spent, and the patience follows the time of the last improvement (ratio alpha / 2:
+    # one more pass at alpha 2, two at alpha 8) above a floor of a few seconds.  It never fires before the first
+    # solution, and not before the covered latency either; the time limit stays the cap.
+    after = min(latency, time_limit)
+    ratio = min(max(alpha / 2.0, RATIO_BOUNDS[0]), RATIO_BOUNDS[1])
     return TimeBudget(
         time_limit=time_limit / speed,
-        stop_when_unimproved_for=patience / speed,
+        stop_when_unimproved_for=MIN_PATIENCE / speed,
         stop_when_unimproved_after=after / speed,
+        stop_when_unimproved_ratio=ratio,
         path=path,
         latency=latency / speed,
         typical_latency=typical / speed,

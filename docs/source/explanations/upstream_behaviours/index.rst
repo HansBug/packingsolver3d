@@ -73,6 +73,13 @@ Anytime mode runs until it is stopped
 
 *Package.* Always pass ``time_limit`` to ``ANYTIME`` solves (the default mode): on an instance that does not pack fully and whose search tree is not exhausted, ``box.solve`` and ``boxstacks.solve`` never return without one. The ``NOT_ANYTIME_*`` modes still run a single fixed pass and return on their own, at the cost of the truncation above when the limit is shorter than the pass. ``stop_when_unimproved_for`` (see :doc:`/how_to/budgets/index`) supplies the stop signal upstream expects from its caller: the solve ends once no new incumbent has appeared for that many seconds.
 
+Multi-bin ``boxstacks`` fills bins one at a time
+------------------------------------------------
+
+*Upstream.* With several bins, ``boxstacks`` has no tree search: bin packing runs *sequential single knapsack* (``SSK``: fill one bin with the growing single-bin search, remove what it placed, continue) when the bin holds more than 16 mean items of a copy-heavy cargo or more than 64 otherwise, and *sequential value correction* (``SVC``: pack every bin with a fixed pass, adjust item profits, repeat) below those thresholds and always for knapsack and variable-sized bin packing. ``SVC`` reports its first solution only after a whole iteration over all bins, tens of seconds on a thousand items, and it returns as soon as a bin-packing solution uses at most two bins. ``SSK`` reports within a second on the 40' container loads of the examples. Neither falls back to the other: a bin count the greedy pass cannot close ends with no solution at the time limit, which on container loads of 1.2 to 2 bin volumes with three or four bins is mostly the sign of an infeasible bin count. Before ``9bfb9431`` the multi-bin path was ``SVC`` only; ``63ed7915`` (`fontanf/packingsolver#584 <https://github.com/fontanf/packingsolver/pull/584>`_) forwards the timer to the pricing subproblem that made ``SSK`` overrun its time limit by up to 25 s.
+
+*Here.* :func:`~packingsolver3d.algorithm_path` replicates the selection and :func:`~packingsolver3d.recommend_time_budget` budgets the two paths separately. Give bin packing one more bin than the volume bound suggests when stacking limits or upright-only items are involved, and read a ``NO_SOLUTION`` on such a load as "these bins do not suffice" before reading it as "not enough time". Measured on 43 container loads with a 60 s limit: first solution median 30 s and 31 loads without a solution at ``2a598481``; 0.5 s and 15 loads at the pinned commit, all 15 of them without a solution on every earlier commit too (`fontanf/packingsolver#583 <https://github.com/fontanf/packingsolver/issues/583>`_).
+
 The ``default`` objective produces no solution
 ----------------------------------------------
 

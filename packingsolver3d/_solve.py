@@ -156,6 +156,7 @@ def core_options(
         linear_programming_solver: Optional[str] = None,
         stop_when_unimproved_for: Optional[float] = None,
         stop_when_unimproved_after: Optional[float] = None,
+        stop_when_unimproved_ratio: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Render the options both solvers accept.
@@ -181,10 +182,16 @@ def core_options(
     :param stop_when_unimproved_after: Seconds from the start before that
         stop may fire; ``None`` means ``0``.  Only meaningful together with
         ``stop_when_unimproved_for``.
+    :param stop_when_unimproved_ratio: Makes the patience relative: the solve
+        stops once no improvement has arrived for the larger of
+        ``stop_when_unimproved_for`` and this many times the time of the last
+        improvement, and never before a first solution exists.  Only
+        meaningful together with ``stop_when_unimproved_for``.
     :return: The rendered options.
-    :raise ValueError: When ``stop_when_unimproved_for`` is not positive, or
-        ``stop_when_unimproved_after`` is negative or given without
-        ``stop_when_unimproved_for``.
+    :raise ValueError: When ``stop_when_unimproved_for`` is not positive, when
+        ``stop_when_unimproved_after`` is negative, when
+        ``stop_when_unimproved_ratio`` is not positive, or when either of the
+        last two is given without ``stop_when_unimproved_for``.
 
     Example::
 
@@ -193,6 +200,8 @@ def core_options(
         {'verbosity_level': 0, 'linear_programming_solver': 'highs'}
         >>> core_options(time_limit=5, memory_limit=1024)['time_limit']
         5.0
+        >>> core_options(stop_when_unimproved_for=5, stop_when_unimproved_ratio=2)['stop_when_unimproved_ratio']
+        2.0
         >>> core_options(stop_when_unimproved_for=5, stop_when_unimproved_after=10)['stop_when_unimproved_after']
         10.0
         >>> core_options(stop_when_unimproved_for=0)
@@ -220,6 +229,12 @@ def core_options(
         if stop_when_unimproved_after < 0:
             raise ValueError('stop_when_unimproved_after must not be negative, got {value!r}'.format(value=stop_when_unimproved_after))
         options['stop_when_unimproved_after'] = float(stop_when_unimproved_after)
+    if stop_when_unimproved_ratio is not None:
+        if stop_when_unimproved_for is None:
+            raise ValueError('stop_when_unimproved_ratio needs stop_when_unimproved_for')
+        if not stop_when_unimproved_ratio > 0:
+            raise ValueError('stop_when_unimproved_ratio must be positive, got {value!r}'.format(value=stop_when_unimproved_ratio))
+        options['stop_when_unimproved_ratio'] = float(stop_when_unimproved_ratio)
     return options
 
 

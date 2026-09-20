@@ -108,6 +108,7 @@ def solve(
         progress_callback: Optional[ProgressCallback] = None,
         stop_when_unimproved_for: Optional[float] = None,
         stop_when_unimproved_after: Optional[float] = None,
+        stop_when_unimproved_ratio: Optional[float] = None,
 ) -> Result:
     """
     Solve a 3D bin packing instance with the ``box`` solver.
@@ -155,6 +156,14 @@ def solve(
     :param stop_when_unimproved_after: Do not apply that stop before this many
         seconds have elapsed since the start; use it to cover the time the
         first solution needs.  ``None`` means ``0``.
+    :param stop_when_unimproved_ratio: Make the patience relative: stop once
+        no improvement has arrived for the larger of
+        ``stop_when_unimproved_for`` and this many times the time of the last
+        improvement, and never before a first solution exists.  The anytime
+        searches double their queues between passes, so a fixed patience cuts
+        every late pass short while a relative one waits for the next pass
+        wherever the search is; :func:`~packingsolver3d.recommend_time_budget`
+        derives it from ``alpha``.
     :return: The :class:`~packingsolver3d.result.Result`.
     :raise UnsupportedFeatureError: When the instance needs stacking support.
     :raise InvalidInstanceError: When the instance is structurally invalid, or
@@ -200,6 +209,7 @@ def solve(
         linear_programming_solver=linear_programming_solver,
         stop_when_unimproved_for=stop_when_unimproved_for,
         stop_when_unimproved_after=stop_when_unimproved_after,
+        stop_when_unimproved_ratio=stop_when_unimproved_ratio,
     )
     switches = (
         ('use_tree_search', use_tree_search),

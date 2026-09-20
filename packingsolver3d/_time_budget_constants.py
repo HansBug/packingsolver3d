@@ -1,13 +1,13 @@
 """Fitted constants of :mod:`packingsolver3d.estimate` -- generated, do not edit by hand.
 
-Generated 2026-09-19 by experiments/time_budget/export_constants.py from the campaign described in
-experiments/time_budget/README.md: 3158 anytime runs on upstream PackingSolver 2a598481 (bischoff1995, davies1999,
+Generated 2026-09-20 by experiments/time_budget/export_constants.py from the campaign described in
+experiments/time_budget/README.md: 3182 anytime runs on upstream PackingSolver d10db9d7 (bischoff1995, davies1999,
 egeblad2009, loh1992, ivancic1989, a ROADEF 2022 sample, synthetic container loads and the Stowly demo).
-Reference machine: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz, Linux, one solve per core; times rescaled to the idle machine by a per-path calibration on 80 instances (load inflation: TSMS 2.31x, SOR 1.91x, SSK 1.14x, boxstacks SVC 1.12x, others 2.17x)
+Reference machine: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz, Linux, one solve per core; box paths and the ROADEF sample from the 2a598481 campaign; every other boxstacks run re-measured on d10db9d7 (SSK new for multi-bin bin packing, SVC now fitted on multi-bin knapsack loads); load calibration per path as before, SSK with the campaign-wide default factor
 """
 
 #: Upstream commit, number of recorded runs, date and CPU of the campaign the constants were fitted on.
-REFERENCE = "upstream 2a598481, 3158 runs, 2026-09-19, 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz"
+REFERENCE = "upstream d10db9d7, 3182 runs, 2026-09-20, 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz"
 
 #: Grid of ``alpha`` values at which the improvement tables are tabulated; values in between are interpolated in log(alpha).
 ALPHAS = [0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]
@@ -46,14 +46,20 @@ PATHS = {
         'add': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
     },
     ('boxstacks', 'SOR'): {
-        'n': 49, 'growth': True, 'coverage': 0.9, 'rmse_log': 0.919,
-        'beta': [-4.7479, 0.4148, 1.0779, 1.9462], 'block': 0.000, 'scale': 0.524, 'shift': 1.2203,
-        'm': {0.25: 0.0149, 0.5: 0.0221, 1.0: 0.7982, 1.5: 1.8468, 2.0: 3.7091, 3.0: 5.8297, 4.0: 6.8614, 6.0: 17.7218, 8.0: 25.4292},
+        'n': 49, 'growth': True, 'coverage': 0.9, 'rmse_log': 0.924,
+        'beta': [-4.5497, 0.355, 0.9168, 1.5093], 'block': 0.000, 'scale': 0.524, 'shift': 1.3429,
+        'm': {0.25: 0.0223, 0.5: 0.2359, 1.0: 1.2482, 1.5: 2.8476, 2.0: 4.162, 3.0: 6.5046, 4.0: 8.6995, 6.0: 20.6249, 8.0: 24.5601},
+        'add': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
+    },
+    ('boxstacks', 'SSK'): {
+        'n': 35, 'growth': False, 'coverage': 0.98, 'rmse_log': 1.036,
+        'beta': [-8.5205, 1.6546, 0.7063], 'block': 0.000, 'scale': 0.461, 'shift': 2.3360,
+        'm': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
         'add': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
     },
     ('boxstacks', 'SVC'): {
-        'n': 32, 'growth': False, 'coverage': 0.98, 'rmse_log': 0.395,
-        'beta': [-2.8245, 1.2516, 0.2625], 'block': 0.000, 'scale': 0.895, 'shift': 0.8359,
+        'n': 12, 'growth': False, 'coverage': 0.98, 'rmse_log': 0.310,
+        'beta': [-0.994, 0.9651, 0.0605], 'block': 0.000, 'scale': 0.895, 'shift': 0.6152,
         'm': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
         'add': {0.25: 0.0, 0.5: 0.0, 1.0: 0.0, 1.5: 0.0, 2.0: 0.0, 3.0: 0.0, 4.0: 0.0, 6.0: 0.0, 8.0: 0.0},
     },

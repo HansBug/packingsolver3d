@@ -176,6 +176,17 @@ class TestProgress:
 
 @pytest.mark.unittest
 class TestStopWhenUnimproved:
+    def test_ratio_scales_the_patience_and_waits_for_a_solution(self, container_stack_instance):
+        # A relative patience cannot fire before the first solution, however slow the machine, and afterwards waits
+        # ratio x (time of the last improvement): the result always carries an incumbent.
+        events = []
+        result = boxstacks.solve(container_stack_instance, time_limit=40.0, stop_when_unimproved_for=0.5, stop_when_unimproved_ratio=0.5,
+                            progress_callback=events.append)
+        assert result.run.stop_reason == 'unimproved'
+        assert result.placements and events
+        assert result.run.options['stop_when_unimproved_ratio'] == 0.5
+        assert result.run.wall_time >= events[-1].time + max(0.5, 0.5 * events[-1].time) - 0.3
+
     def test_stops_when_stalled(self, container_stack_instance):
         # First solution within 0.3 s here; stop_when_unimproved_after keeps the stop clear of it on slow runners.
         result = boxstacks.solve(container_stack_instance, time_limit=30.0, stop_when_unimproved_for=1.5,
