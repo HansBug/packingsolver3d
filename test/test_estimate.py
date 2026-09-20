@@ -76,7 +76,13 @@ class TestAlgorithmPath:
 
     def test_boxstacks(self, container_stack_instance):
         assert algorithm_path(container_stack_instance, 'boxstacks') == 'SOR'
+        # several bins: bin packing follows the same threshold rule as box (SSK above it, SVC below), the other
+        # objectives always run SVC
         assert algorithm_path(self._multi(per_bin=10, copies=3, types=2), 'boxstacks') == 'SVC'
+        assert algorithm_path(self._multi(per_bin=20, copies=30, types=1), 'boxstacks') == 'SSK'
+        assert algorithm_path(self._multi(per_bin=100, copies=1, types=50), 'boxstacks') == 'SSK'
+        assert algorithm_path(self._multi(per_bin=100, copies=200, types=1, objective=Objective.KNAPSACK), 'boxstacks') == 'SVC'
+        assert algorithm_path(self._multi(per_bin=100, copies=200, types=1, objective=Objective.VARIABLE_SIZED_BIN_PACKING), 'boxstacks') == 'SVC'
 
     def test_unknown_solver(self, box_instance):
         with pytest.raises(ValueError, match='solver must be'):
@@ -108,12 +114,14 @@ class TestRecommendTimeBudget:
         assert budget.improvement > 0
         assert budget.time_limit == pytest.approx(budget.latency + budget.improvement)
         assert estimate._c.MIN_LATENCY <= budget.typical_latency < budget.latency
-        assert budget.stop_when_unimproved_after == pytest.approx(budget.time_limit / 2)
-        assert budget.stop_when_unimproved_for == pytest.approx(max(estimate.MIN_PATIENCE, budget.improvement / 2))
+        assert budget.stop_when_unimproved_after == pytest.approx(budget.latency)
+        assert budget.stop_when_unimproved_for == estimate.MIN_PATIENCE
+        assert budget.stop_when_unimproved_ratio == 2.0
         assert budget.as_options() == {
             'time_limit': budget.time_limit,
             'stop_when_unimproved_for': budget.stop_when_unimproved_for,
             'stop_when_unimproved_after': budget.stop_when_unimproved_after,
+            'stop_when_unimproved_ratio': budget.stop_when_unimproved_ratio,
         }
 
     def test_block_generation_step_applies_from_four_types(self):
@@ -133,14 +141,16 @@ class TestRecommendTimeBudget:
         assert overfull.latency > fits.latency * 3
 
     def test_single_pass_path_is_latency_only(self, container_stack_instance):
+        # several bins with more cargo than fits: multi-bin knapsack, the SVC path on every upstream so far
         instance = _instance(container_stack_instance.item_types,
-                             [BinType(x=12032, y=2352, z=2698, copies=4, cost=1, maximum_weight=26460)], Objective.BIN_PACKING)
+                             [BinType(x=12032, y=2352, z=2698, copies=2, cost=1, maximum_weight=26460)], Objective.KNAPSACK)
         budget = recommend_time_budget(instance, 'boxstacks')
         assert budget.path == 'SVC'
-        assert budget.improvement == 0.0
-        assert budget.time_limit == pytest.approx(budget.latency)
-        assert budget.stop_when_unimproved_after == pytest.approx(budget.latency)
+        assert budget.improvement >= 0.0
+        assert budget.time_limit == pytest.approx(budget.latency + budget.improvement)
+        assert budget.stop_when_unimproved_after == pytest.approx(min(budget.latency, budget.time_limit))
         assert budget.stop_when_unimproved_for == estimate.MIN_PATIENCE
+        assert budget.stop_when_unimproved_ratio == 4.0  # boxstacks default alpha 8
 
     def test_default_alpha_depends_on_the_solver(self, container_instance, container_stack_instance):
         assert estimate.DEFAULT_ALPHA == {'box': 4.0, 'boxstacks': 8.0}
@@ -157,13 +167,15 @@ class TestRecommendTimeBudget:
         assert balanced.improvement < between.improvement < quality.improvement
         assert recommend_time_budget(container_instance, alpha=100.0).time_limit == quality.time_limit
         assert recommend_time_budget(container_instance, alpha=0.01).improvement == recommend_time_budget(container_instance, alpha=0.25).improvement
+        # the relative patience follows alpha / 2 within 1 ... 4
+        assert [recommend_time_budget(container_instance, alpha=a).stop_when_unimproved_ratio for a in (0.25, 2.0, 3.0, 4.0, 6.0, 8.0, 100.0)] == [1.0, 1.0, 1.5, 2.0, 3.0, 4.0, 4.0]
 
     def test_floor_and_cap(self, box_instance):
         tiny = recommend_time_budget(box_instance, alpha=0.25)
         assert tiny.time_limit == estimate.MIN_TIME_LIMIT
         assert tiny.stop_when_unimproved_after <= tiny.time_limit
         huge = _instance([ItemType(x=10, y=10, z=10, copies=20000, stackability_id=0) for _ in range(40)],
-                         [BinType(x=1000, y=1000, z=1000, copies=5)], Objective.BIN_PACKING)
+                         [BinType(x=1000, y=1000, z=1000, copies=2)], Objective.KNAPSACK)  # multi-bin knapsack: SVC
         assert recommend_time_budget(huge, 'boxstacks').time_limit == estimate.MAX_TIME_LIMIT
 
     def test_typical_latency_keeps_the_block_step_and_drops_the_coverage_shift(self, container_instance):
@@ -181,6 +193,7 @@ class TestRecommendTimeBudget:
         assert fast.speed == 2.0
         for field in ('time_limit', 'stop_when_unimproved_for', 'stop_when_unimproved_after', 'latency', 'typical_latency', 'improvement'):
             assert getattr(fast, field) == pytest.approx(getattr(base, field) / 2)
+        assert fast.stop_when_unimproved_ratio == base.stop_when_unimproved_ratio  # dimensionless
 
     @pytest.mark.parametrize('kwargs, message', [
         ({'alpha': 0}, 'alpha must be positive'),

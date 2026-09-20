@@ -73,6 +73,13 @@ anytime 模式会一直运行直到被停止
 
 *本包。* ``ANYTIME``\ （默认模式）求解务必传 ``time_limit``\ ：在装不满且搜索树耗不尽的实例上，``box.solve`` 与 ``boxstacks.solve`` 不传时限就永不返回。``NOT_ANYTIME_*`` 各模式仍只做一次固定扫描并自行返回，代价是时限短于该扫描时会出现上述截断。``stop_when_unimproved_for``\ （见 :doc:`/how_to/budgets/index_zh`\ ）提供上游期望由调用方发出的那个停止信号：多少秒没有新的当前解，求解即结束。
 
+多箱 ``boxstacks`` 逐箱装载
+-----------------------------
+
+*上游。* 多箱时 ``boxstacks`` 没有树搜索：bin packing 在箱子能装下的平均件数超过 16（份数密集的货）或 64（其余）时走*序贯单背包*（``SSK``：用逐级增长的单箱搜索装满一箱、扣掉已装货物、继续下一箱），低于阈值时以及 knapsack、变尺寸装箱始终走*序贯价值修正*（``SVC``：用定长的一轮把所有箱子装一遍、调整货物价值、再来一轮）。``SVC`` 要整轮跑完所有箱子才报出第一个解，一千件货物上要几十秒，且一旦 bin packing 的解只用了两个以内的箱子就立即返回；``SSK`` 在示例的 40 尺柜货载上一秒内报解。两者互不回退：贪心一轮装不下的箱数会以"到时限无解"收场，在 1.2 到 2 倍柜容配三四个箱子的货载上这多半说明箱数本身不够。``9bfb9431`` 之前多箱只有 ``SVC``；``63ed7915``（`fontanf/packingsolver#584 <https://github.com/fontanf/packingsolver/pull/584>`_）把计时器传进了定价子问题，此前 ``SSK`` 会超出时限最多 25 秒。
+
+*本包。* :func:`~packingsolver3d.algorithm_path` 复刻这一选择，:func:`~packingsolver3d.recommend_time_budget` 对两条路径分别给预算。涉及堆叠限制或只能直立的货物时，bin packing 的箱数请比体积下界多给一个；这类货载上的 ``NO_SOLUTION`` 先理解为"这些箱子不够"，再考虑"时间不够"。43 个集装箱货载、60 秒上限的实测：``2a598481`` 首解中位 30 秒、31 个无解；钉住的提交首解中位 0.5 秒、15 个无解，而这 15 个在此前每个提交上同样无解（`fontanf/packingsolver#583 <https://github.com/fontanf/packingsolver/issues/583>`_）。
+
 ``default`` 目标不产生任何解
 ----------------------------
 

@@ -33,6 +33,9 @@ Shared options
    * - ``stop_when_unimproved_after``
      - same watchdog
      - seconds from the start before that stop may fire (default ``0``); needs ``stop_when_unimproved_for``
+   * - ``stop_when_unimproved_ratio``
+     - same watchdog
+     - makes the patience relative: stop once no improvement has arrived for the larger of ``stop_when_unimproved_for`` and this many times the time of the last improvement, and never before a first solution exists; needs ``stop_when_unimproved_for``; :func:`~packingsolver3d.recommend_time_budget` sets it from ``alpha``
    * - ``progress_callback``
      - ``new_solution_callback``
      - called with a :class:`~packingsolver3d.result.ProgressEvent` on every improvement of the incumbent; return ``False`` to stop the solve (``RunRecord.stop_reason == 'callback'``); see :doc:`/how_to/budgets/index`

@@ -69,7 +69,15 @@ Until a first solution exists the clock runs from the start of the solve. ``box`
    result = boxstacks.solve(instance, time_limit=120.0,
                             stop_when_unimproved_for=5.0, stop_when_unimproved_after=15.0)
 
-Both knobs compose with ``progress_callback``: a callback that returns ``False`` wins (``stop_reason == 'callback'``), and the watchdog never calls into Python.
+A fixed patience suits searches that improve at a steady rate. PackingSolver's anytime searches double their queues between passes, so the gaps between improvements grow with the time already spent, and a fixed patience either cuts a late pass short or wastes most of the budget. ``stop_when_unimproved_ratio`` makes the patience relative: the solve stops once no improvement has arrived for the larger of ``stop_when_unimproved_for`` and the ratio times the time of the last improvement, and never before a first solution exists:
+
+.. code-block:: python
+
+   result = boxstacks.solve(instance, time_limit=120.0, stop_when_unimproved_for=5.0, stop_when_unimproved_ratio=2.0)
+
+A last improvement at 6 s then buys 12 s of silence before the stop, one at 30 s buys 60 s. :func:`~packingsolver3d.recommend_time_budget` sets the ratio from ``alpha``.
+
+All three knobs compose with ``progress_callback``: a callback that returns ``False`` wins (``stop_reason == 'callback'``), and the watchdog never calls into Python.
 
 Letting the library pick the budget
 -----------------------------------
@@ -80,14 +88,14 @@ Letting the library pick the budget
 
    budget = recommend_time_budget(instance, solver='box')          # alpha defaults to 4 for box, 8 for boxstacks
    result = box.solve(instance, **budget.as_options())
-   budget.time_limit, budget.stop_when_unimproved_for, budget.stop_when_unimproved_after, budget.path
+   budget.time_limit, budget.stop_when_unimproved_for, budget.stop_when_unimproved_after, budget.stop_when_unimproved_ratio, budget.path
 
-:func:`~packingsolver3d.recommend_time_budget` turns the instance into a :class:`~packingsolver3d.TimeBudget`: a ``time_limit`` that is a loose upper bound, plus the two stall-stop knobs above so that most solves end well before it. The numbers come from a model fitted on 3158 recorded improvement curves (upstream's benchmark families, a ROADEF 2022 sample, synthetic container loads); :doc:`/explanations/time_budget/index` explains it. Two dials matter:
+:func:`~packingsolver3d.recommend_time_budget` turns the instance into a :class:`~packingsolver3d.TimeBudget`: a ``time_limit`` that is a loose upper bound, plus the three stall-stop knobs above (a relative patience of ``alpha/2`` times the time of the last improvement, a 5 s floor, and the predicted first-solution latency as the earliest stop) so that most solves end well before it. The numbers come from a model fitted on 3158 recorded improvement curves (upstream's benchmark families, a ROADEF 2022 sample, synthetic container loads); :doc:`/explanations/time_budget/index` explains it. Two dials matter:
 
 * ``alpha`` weighs quality against waiting the way F-beta weighs recall against precision: ``4.0`` stops once further passes stop paying for themselves, ``8.0`` waits for the last few tenths of a percent. The default depends on the solver (``DEFAULT_ALPHA``: ``box`` 4, ``boxstacks`` 8, because the single-bin ``boxstacks`` algorithm keeps improving overfull containers for minutes). On the 40' container of the examples ``box`` gets about 13 s at ``alpha=4``, ``boxstacks`` about 70 s at ``alpha=8``; the median solve ends earlier through the stall stop.
 * ``speed`` is the speed of the current machine relative to the reference machine (see ``packingsolver3d._time_budget_constants.REFERENCE``); every duration is divided by it. Calibrate it from a solve you have already run: ``speed = budget.typical_latency * budget.speed / measured_first_solution_time`` (``typical_latency`` is the median prediction; ``latency`` is the covered upper estimate the budget itself is built on, so comparing against it would overstate the speed).
 
-The three values form one stopping policy; :doc:`/explanations/time_budget/index` compares it with a bare time limit and a bare stagnation stop on every recorded curve and says what a calling application should do with each field. The recommendation is only as good as upstream's algorithm for the instance shape, and :func:`~packingsolver3d.algorithm_path` tells you which one that is. Two shapes are honest but slow: ``boxstacks`` with several bins runs ``SVC`` (sequential value correction), whose first complete solution takes tens of seconds on a thousand items and which ends by itself right after -- the budget is then just that latency, at the 98 % coverage quantile -- and ``box`` / ``boxstacks`` on a container with more cargo than fits keep improving for minutes, which is what ``alpha=8`` pays for.
+The four values form one stopping policy; :doc:`/explanations/time_budget/index` compares it with a bare time limit and a bare stagnation stop on every recorded curve and says what a calling application should do with each field. The recommendation is only as good as upstream's algorithm for the instance shape, and :func:`~packingsolver3d.algorithm_path` tells you which one that is. Two shapes are honest but slow: ``boxstacks`` knapsack (or variable-sized bin packing) with several bins runs ``SVC`` (sequential value correction), whose first complete solution takes tens of seconds on a few hundred items and which ends by itself right after -- the budget is then just that latency, at the 98 % coverage quantile -- and ``box`` / ``boxstacks`` on a container with more cargo than fits keep improving for minutes, which is what ``alpha=8`` pays for. Multi-bin ``boxstacks`` *bin packing* takes ``SSK`` (sequential single knapsack) since upstream ``9bfb9431`` and reports within a second on the container loads of the examples.
 
 Algorithm switches
 ------------------

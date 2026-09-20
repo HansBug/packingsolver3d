@@ -161,6 +161,20 @@ def _interp(table, alpha):
             return table[lo] + w * (table[hi] - table[lo])
 
 
+def stall_stop_relative(pts, end, T, after, ratio, patience):
+    """When the shipped watchdog ends a run capped at T: never before the first solution, then once the run has been
+    silent for max(patience, ratio x time of the last improvement), and not before `after`."""
+    if not pts:
+        return min(T, end)
+    prev = pts[0][0]
+    for t, _ in pts[1:]:
+        fire = max(after, prev + max(patience, ratio * prev))
+        if fire < t and fire <= min(T, end):
+            return fire
+        prev = t
+    return min(T, end, max(after, prev + max(patience, ratio * prev)))
+
+
 def stall_stop(pts, end, T, after, patience):
     """When the watchdog (stop_when_unimproved_for=patience, _after=after) would end a run capped at T."""
     last = 0.0
@@ -184,9 +198,9 @@ def evaluate(rows, model, alpha, scale=1.0, kappa=None, floor=1.0, cap=600.0):
         if kappa is None:
             stop = min(T, end)
         else:
-            patience = max(2.0, kappa * p['extra']) / sc
-            after = max(p['latency'], p['time_limit'] / 2) / sc   # never in the first half of the budget, never before the expected first solution
-            stop = stall_stop(r['pts'], end, T, after, patience)
+            # the shipped rule: floor 5 s, ratio alpha / 2 clamped to 1 ... 4, not before the covered latency
+            ratio = min(max(alpha / 2.0, 1.0), 4.0)
+            stop = stall_stop_relative(r['pts'], end, T, p['latency'] / sc, ratio, 5.0 / sc)
         qv = analyze.quality_at(r['pts'], stop, r['ref_run'])
         out.append({'id': r['id'], 'family': r['family'], 'solver': r['solver'], 'path': p['path'], 'T': T * sc, 'used': stop * sc, 'q': qv,
                     't_last': r['t_last'] * sc, 'tstar': (r['opt'][alpha] or 0) * sc})
@@ -246,7 +260,7 @@ if __name__ == '__main__':
         md += [f'\n## alpha = {a}: time limit only\n', table(ev, lambda e: e['solver'] + '/' + e['path'] + ('' if e['family'] != 'roadef2022' else ' (ROADEF)')), '', table(ev, lambda e: e['solver'] + '/' + e['family'])]
         for kappa in (0.5,):
             evk = evaluate(rows, model, a, scale, kappa=kappa)
-            md += [f'\n### alpha = {a}, with stall stop: after = max(L, T/2), patience = max(2 s, {kappa} × extra)\n', table(evk, lambda e: e['solver'] + '/' + e['path'] + ('' if e['family'] != 'roadef2022' else ' (ROADEF)'))]
+            md += [f'\n### alpha = {a}, with the shipped stall stop: not before the first solution nor L, patience = max(5 s, clamp(alpha/2, 1, 4) × t_last)\n', table(evk, lambda e: e['solver'] + '/' + e['path'] + ('' if e['family'] != 'roadef2022' else ' (ROADEF)'))]
     out = '\n'.join(md)
     open(os.path.join(os.environ.get('TB_WORK', '/tmp/tb'), 'results', 'model_report.md'), 'w').write(out + '\n')
     json.dump({f'{k[0]}/{k[1]}': v for k, v in model.items()}, open(os.path.join(os.environ.get('TB_WORK', '/tmp/tb'), 'results', 'model_constants.json'), 'w'), indent=1)

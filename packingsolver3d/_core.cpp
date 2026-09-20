@@ -11,6 +11,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <algorithm>
 #include <atomic>
 #include <tuple>
 #include <memory>
@@ -104,8 +105,15 @@ std::array<Length, 3> placed_extents(const BoxT& box, int rotation)
 //
 // The watchdog is a side thread that never touches Python: every 50 ms it
 // compares the time of the last improvement with upstream's clock and flips
-// its own end boolean once `stop_when_unimproved_for` seconds have passed
-// without one (and `stop_when_unimproved_after` seconds since the start).
+// its own end boolean once the patience has passed without one (and
+// `stop_when_unimproved_after` seconds since the start).  The patience is
+// `stop_when_unimproved_for` seconds, or, when `stop_when_unimproved_ratio`
+// is given, the larger of that and `ratio` times the time of the last
+// improvement: upstream's anytime searches double their queues between
+// passes, so the wait for the next pass grows with the time already spent,
+// and a constant patience would cut every late pass short.  With a ratio the
+// watchdog also waits for a first solution (a ratio of nothing is nothing);
+// the time limit alone bounds a run that never finds one.
 // It is upstream's own stop signal, the same one a time limit raises; nothing
 // is killed or interrupted from outside.
 struct SolveHooks
@@ -114,12 +122,13 @@ struct SolveHooks
     py::object callback;
     bool stop_callback = false;
     std::exception_ptr error;
-    bool reported = false;
+    std::atomic<bool> reported{false};  // read by the watchdog thread once a ratio is set
     std::tuple<std::int64_t, std::int64_t, double, double, std::string> last;
 
     // Stagnation watchdog.
     double unimproved_for = 0.0;    // <= 0: watchdog off
     double unimproved_after = 0.0;
+    double unimproved_ratio = 0.0;  // <= 0: constant patience
     bool stop_unimproved = false;
     const optimizationtools::Timer* timer = nullptr;
     std::atomic<double> last_improvement{0.0};
@@ -150,6 +159,7 @@ std::shared_ptr<SolveHooks> install_hooks(Parameters& parameters, const py::dict
     if (unimproved_for > 0.0) {
         hooks->unimproved_for = unimproved_for;
         read(options, "stop_when_unimproved_after", hooks->unimproved_after);
+        read(options, "stop_when_unimproved_ratio", hooks->unimproved_ratio);
         parameters.timer.add_end_boolean(&hooks->stop_unimproved);
     }
     parameters.new_solution_callback = [&parameters, hooks](const auto& output) {
@@ -207,8 +217,15 @@ void start_hooks(const Hooks& hooks)
         while (!hooks->done) {
             hooks->wake.wait_for(lock, std::chrono::milliseconds(50));
             double now = hooks->timer->elapsed_time();
-            if (now >= hooks->unimproved_after
-                    && now - hooks->last_improvement.load() >= hooks->unimproved_for) {
+            double last = hooks->last_improvement.load();
+            double patience = hooks->unimproved_for;
+            if (hooks->unimproved_ratio > 0.0) {
+                if (!hooks->reported) {
+                    continue;  // relative patience: nothing to be relative to before the first solution
+                }
+                patience = std::max(patience, hooks->unimproved_ratio * last);
+            }
+            if (now >= hooks->unimproved_after && now - last >= patience) {
                 hooks->stop_unimproved = true;
             }
         }

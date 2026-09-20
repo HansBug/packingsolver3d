@@ -33,6 +33,9 @@
    * - ``stop_when_unimproved_after``
      - 同一看门狗
      - 求解开始后多少秒之内不触发上述停止（默认 ``0``\ ）；须与 ``stop_when_unimproved_for`` 一起使用
+   * - ``stop_when_unimproved_ratio``
+     - 同一看门狗
+     - 把耐心变成相对量：无改进时长达到 ``stop_when_unimproved_for`` 与"上次改进时刻 × 该倍数"两者之大者才停止，且首个解出现前不触发；须与 ``stop_when_unimproved_for`` 一起使用；:func:`~packingsolver3d.recommend_time_budget` 按 ``alpha`` 给出
    * - ``progress_callback``
      - ``new_solution_callback``
      - 每次当前解改进时以一个 :class:`~packingsolver3d.result.ProgressEvent` 调用；返回 ``False`` 可提前停止求解（此时 ``RunRecord.stop_reason == 'callback'``\ ）；见 :doc:`/how_to/budgets/index_zh`

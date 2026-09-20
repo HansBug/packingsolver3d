@@ -148,6 +148,17 @@ class TestProgress:
 
 @pytest.mark.unittest
 class TestStopWhenUnimproved:
+    def test_ratio_scales_the_patience_and_waits_for_a_solution(self, container_instance):
+        # A relative patience cannot fire before the first solution, however slow the machine, and afterwards waits
+        # ratio x (time of the last improvement): the result always carries an incumbent.
+        events = []
+        result = box.solve(container_instance, time_limit=40.0, stop_when_unimproved_for=0.5, stop_when_unimproved_ratio=0.5,
+                            progress_callback=events.append)
+        assert result.run.stop_reason == 'unimproved'
+        assert result.placements and events
+        assert result.run.options['stop_when_unimproved_ratio'] == 0.5
+        assert result.run.wall_time >= events[-1].time + max(0.5, 0.5 * events[-1].time) - 0.3
+
     def test_stops_when_stalled(self, container_instance):
         # The tree search needs about a second for its first solution on this machine, several on a slow CI runner,
         # and the stall clock runs from the start until then: the stop is asserted, the incumbent is asserted only

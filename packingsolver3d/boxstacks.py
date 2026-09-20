@@ -154,6 +154,7 @@ def solve(
         progress_callback: Optional[ProgressCallback] = None,
         stop_when_unimproved_for: Optional[float] = None,
         stop_when_unimproved_after: Optional[float] = None,
+        stop_when_unimproved_ratio: Optional[float] = None,
 ) -> Result:
     """
     Solve a stacked 3D bin packing instance with the ``boxstacks`` solver.
@@ -166,7 +167,8 @@ def solve(
     :param time_limit: Seconds of search.  ``None`` lets the solver run until
         it proves optimality; in the default ``ANYTIME`` mode that means
         indefinitely on any instance that does not pack fully (upstream
-        ``2a598481`` made the single-bin algorithm anytime too), so pass a
+        ``2a598481`` made the single-bin algorithm anytime too, and ``9bfb9431`` gave
+        multi-bin bin packing the same growing per-bin search), so pass a
         limit for anything but tiny inputs.
     :param memory_limit: Mebibytes the solver may use, checked by upstream at
         its own checkpoints; there is no hard limit.
@@ -201,6 +203,14 @@ def solve(
         cover that with ``stop_when_unimproved_after``.
     :param stop_when_unimproved_after: Do not apply that stop before this many
         seconds have elapsed since the start.  ``None`` means ``0``.
+    :param stop_when_unimproved_ratio: Make the patience relative: stop once
+        no improvement has arrived for the larger of
+        ``stop_when_unimproved_for`` and this many times the time of the last
+        improvement, and never before a first solution exists.  The anytime
+        searches double their queues between passes, so a fixed patience cuts
+        every late pass short while a relative one waits for the next pass
+        wherever the search is; :func:`~packingsolver3d.recommend_time_budget`
+        derives it from ``alpha``.
     :return: The :class:`~packingsolver3d.result.Result`.  Bins carry
         :attr:`~packingsolver3d.result.PackedBin.stacks` here, which ``box``
         results never do.
@@ -250,6 +260,7 @@ def solve(
         linear_programming_solver=linear_programming_solver,
         stop_when_unimproved_for=stop_when_unimproved_for,
         stop_when_unimproved_after=stop_when_unimproved_after,
+        stop_when_unimproved_ratio=stop_when_unimproved_ratio,
     )
     return solve_instance('boxstacks', instance, options, unloading_constraint=unloading_constraint,
                           progress_callback=progress_callback)

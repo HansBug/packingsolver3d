@@ -227,6 +227,22 @@ class TestStopWhenUnimproved:
         assert raw['stop_reason'] == 'unimproved'
         assert events and events[-1]['number_of_items'] == json.loads(raw['output'])['Solution']['NumberOfItems']
 
+    def test_ratio_waits_for_the_first_solution_and_scales_the_patience(self):
+        # boxstacks on the container reports its first solution within a second; with a ratio the watchdog cannot
+        # fire before it, and afterwards waits ratio x (time of the last improvement), at least the floor.
+        events = []
+        started = time.perf_counter()
+        result = _core.boxstacks_solve(_container_payload(), {
+            'time_limit': 30.0, 'linear_programming_solver': 'highs', 'optimization_mode': 'anytime',
+            'stop_when_unimproved_for': 0.5, 'stop_when_unimproved_ratio': 0.5,
+            'progress_callback': lambda event: events.append(event['time']) or None})
+        wall = time.perf_counter() - started
+        assert result['stop_reason'] == 'unimproved'
+        assert events, 'a ratio never stops a run before its first solution'
+        assert sum(len(b['placements']) for b in result['bins']) > 0
+        assert wall >= events[-1] + max(0.5, 0.5 * events[-1]) - 0.2
+        assert wall < 30.0
+
     def test_not_triggered_when_the_solve_ends_first(self):
         raw = _core.box_solve(_payload(), dict(self.OPTIONS, time_limit=2.0, stop_when_unimproved_for=5.0))
         assert raw['stop_reason'] is None
