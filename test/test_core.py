@@ -209,6 +209,8 @@ class TestStopWhenUnimproved:
         assert raw['stop_reason'] == 'unimproved'
 
     def test_callback_stop_takes_precedence(self):
+        # The callback stops the run at its first event; the watchdog must not get there first, so it is held back
+        # until well after the first solution (which took more than its 1 s patience on a slow macOS runner once).
         events = []
 
         def stop_at_once(event):
@@ -216,7 +218,7 @@ class TestStopWhenUnimproved:
             return False
 
         raw = _core.boxstacks_solve(_container_payload(), dict(self.OPTIONS, time_limit=30.0, stop_when_unimproved_for=1.0,
-                                                              progress_callback=stop_at_once))
+                                                              stop_when_unimproved_after=15.0, progress_callback=stop_at_once))
         assert raw['stop_reason'] == 'callback'
         assert len(events) == 1
 
