@@ -159,6 +159,10 @@ BOXSTACKS_CASES = [
     # Three postal carton sizes on EUR pallets, optimal in two pallets (fontanf/packingsolver#576): the certificate has
     # several bins, which is what used to read past the unsized weight vectors in Solution::feasible_axle_weights (#575).
     ('bin_packing_postal_cartons_eur_pallets', dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL)),
+    # test/boxstacks/sequential_value_correction_test.cpp (upstream 9ae71316): a multi-bin knapsack whose first pass leaves
+    # one item type entirely unpacked; the profit update used to divide by its zero packed copies and the second pass
+    # aborted with "Items must have strictly positive profits." (fontanf/packingsolver#587, fixed by #588).
+    ('knapsack_multi_bin_svc_zero_copies_item_type', dict(optimization_mode=OptimizationMode.NOT_ANYTIME_SEQUENTIAL)),
     # The three *_time_limit cases run with a 3 s limit upstream (BoxStacksOptimizeTestParams::time_limit): they are the
     # reproducers of fontanf/packingsolver#570, where the box relaxation solved for the bound used to consume the whole
     # time limit and optimize() returned nothing; since #571 the bound comes from closed-form relaxations and the limit
