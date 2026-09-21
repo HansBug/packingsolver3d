@@ -34,6 +34,10 @@ python experiments/time_budget/export_constants.py $TB_WORK/results/campaign.jso
 
 `campaign.py` is resumable (it skips ids already in the output file) and kills a job that overruns its time limit by 90 s.
 
+## Upstream 9ae71316 (0.0.5): constants kept
+
+0.0.5 moves the submodule from d10db9d7 to 9ae71316. The five upstream commits in between fix two crashes (the bin-weight tolerance mismatch of fontanf/packingsolver#582 via #586, the sequential value correction division by zero of #587 via #588), expose more `boxstacks` CLI switches and bump two dependencies; none of them changes an algorithm path or its pacing. Checked on 2026-09-21 with both CLIs built on the reference machine: the three multi-bin bin-packing loads of the SSK path (demo 4 bins, demo x2, ten types; 30 s) end with the same items, bins and times to the millisecond (0.31 s, 3.63 s, time limit), and the 36 synthetic multi-bin knapsack loads of the SVC path either behave identically or stop crashing (19 of 36 crashed on d10db9d7, none on 9ae71316; 13 loads have no complete pass within 20 s on either). The constants in `packingsolver3d/_time_budget_constants.py` therefore stay as measured on d10db9d7.
+
 ## Files
 
 - `instances.py` -- loaders for the upstream CSV layouts, the ROADEF prefixed layout, the synthetic generator, instance features, the job list.
